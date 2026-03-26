@@ -72,9 +72,13 @@ export APP_JWT_SECRET='your_base64_secret'
 ```bash
 cd frontend
 cp .env.example .env
-npm install
+npm ci # 不修改package-lock.json
 npm run dev
 ```
+
+使用的npm版本为 10.9.2
+
+使用的node版本为v22.15.0
 
 默认地址：`http://localhost:5173`
 
