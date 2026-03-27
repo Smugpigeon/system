@@ -118,17 +118,39 @@ public class TaskService {
     }
 
     public PageResult<TaskResponse> page(PageRequest pageRequest, String username) {
-        List<TaskResponse> records = listTasks(username);
-        int totalRecords = records.size();
-        int size = pageRequest.size();
-        int page = pageRequest.page();
-        int totalPages = (totalRecords + size - 1) / size;
+        User currentUser = userService.findByUsernameOrThrow(username);
 
+        // 构建分页参数（Spring Data 页码从0开始）
+        int pageNumber = Math.max(0, pageRequest.page() - 1);
+        int pageSize = pageRequest.size();
+
+        // 创建 Pageable 对象，并指定排序
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(
+                        pageNumber,
+                        pageSize,
+                        org.springframework.data.domain.Sort.by(
+                                org.springframework.data.domain.Sort.Direction.DESC,
+                                "updatedAt"
+                        )
+                );
+
+        // 调用 JPA 的分页查询
+        org.springframework.data.domain.Page<Task> taskPage =
+                taskRepository.findAllByOwnerId(currentUser.getId(), pageable);
+
+        // 转换为 DTO
+        List<TaskResponse> records = taskPage.getContent()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        // 返回分页结果
         return new PageResult<>(
-                totalRecords,
-                totalPages,
-                page,
-                size,
+                (int) taskPage.getTotalElements(),
+                taskPage.getTotalPages(),
+                pageRequest.page(),
+                pageSize,
                 records
         );
     }

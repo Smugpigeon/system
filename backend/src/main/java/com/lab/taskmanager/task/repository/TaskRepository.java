@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
@@ -19,4 +21,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByOwnerIdAndPriority(Long id, TaskPriority priority);
 
     List<Task> findByOwnerIdAndStatusAndPriority(Long id, TaskStatus status, TaskPriority priority);
+
+    Page<Task> findAllByOwnerId(Long id, Pageable pageable);
 }
