@@ -10,6 +10,8 @@ import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
+
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -95,5 +97,20 @@ public class TaskService {
                 task.getDueAt(),
                 task.getCreatedAt(),
                 task.getUpdatedAt());
+    }
+
+    public List<TaskResponse> getFilteredTasks(String username, TaskStatus status, TaskPriority priority) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        List<Task> result = new ArrayList<>();
+
+        if (status == null && priority == null) {
+            throw new IllegalArgumentException("请传入一个筛选条件");
+        } else if (status != null) {
+            result = taskRepository.findByOwnerIdAndStatus(currentUser.getId(), status);
+        } else if(priority != null) {
+            result = taskRepository.findByOwnerIdAndPriority(currentUser.getId(), priority);
+        }
+
+        return result.stream().map(this::toResponse).toList();
     }
 }
