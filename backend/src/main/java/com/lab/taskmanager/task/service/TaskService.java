@@ -105,10 +105,12 @@ public class TaskService {
 
         if (status == null && priority == null) {
             throw new IllegalArgumentException("请传入一个筛选条件");
-        } else if (status != null) {
+        } else if (status != null && priority == null) {
             result = taskRepository.findByOwnerIdAndStatus(currentUser.getId(), status);
-        } else if(priority != null) {
+        } else if(priority != null && status == null) {
             result = taskRepository.findByOwnerIdAndPriority(currentUser.getId(), priority);
+        } else {
+            result = taskRepository.findByOwnerIdAndStatusAndPriority(currentUser.getId(), status, priority);
         }
 
         return result.stream().map(this::toResponse).toList();
