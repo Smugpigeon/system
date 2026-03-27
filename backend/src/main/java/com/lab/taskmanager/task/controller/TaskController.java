@@ -4,6 +4,8 @@ import com.lab.taskmanager.common.api.ApiResponse;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
+import com.lab.taskmanager.task.dto.PageRequest;
+import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
@@ -90,5 +92,14 @@ public class TaskController {
     ){
         List<TaskResponse> filteredTasks = taskService.getFilteredTasks(authentication.getName(), status, priority);
         return ResponseEntity.ok(ApiResponse.success("筛选任务获取成功", filteredTasks));
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> page(
+            @RequestBody PageRequest pageRequest,
+            Authentication authentication
+    ) {
+        PageResult<TaskResponse> pageResult = taskService.page(pageRequest, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("分页结果获取成功", pageResult));
     }
 }
