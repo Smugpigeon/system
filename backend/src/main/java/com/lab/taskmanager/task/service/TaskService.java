@@ -1,9 +1,11 @@
 package com.lab.taskmanager.task.service;
 
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
+import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
+import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
@@ -113,5 +115,21 @@ public class TaskService {
         }
 
         return result.stream().map(this::toResponse).toList();
+    }
+
+    public PageResult<TaskResponse> page(PageRequest pageRequest, String username) {
+        List<TaskResponse> records = listTasks(username);
+        int totalRecords = records.size();
+        int size = pageRequest.size();
+        int page = pageRequest.page();
+        int totalPages = (totalRecords + size - 1) / size;
+
+        return new PageResult<>(
+                totalRecords,
+                totalPages,
+                page,
+                size,
+                records
+        );
     }
 }
