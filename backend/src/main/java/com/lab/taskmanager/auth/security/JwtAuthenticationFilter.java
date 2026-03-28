@@ -2,7 +2,10 @@ package com.lab.taskmanager.auth.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.taskmanager.common.api.ApiResponse;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,6 +62,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             filterChain.doFilter(request, response);
+        } catch (ExpiredJwtException exception) {
+            writeUnauthorizedResponse(response, "登录已过期，请重新登录");
+        } catch (SignatureException exception) {
+            writeUnauthorizedResponse(response, "无效的访问令牌，请重新登录");
+        } catch (MalformedJwtException exception) {
+            writeUnauthorizedResponse(response, "令牌格式错误，请重新登录"); 
         } catch (JwtException exception) {
             writeUnauthorizedResponse(response, "无效的访问令牌，请重新登录");
         }
