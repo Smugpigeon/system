@@ -71,7 +71,7 @@ export function RegisterPage() {
                 maxLength={20}
                 minLength={4}
                 pattern="[A-Za-z0-9_]{4,20}"
-                placeholder="例如：lab1_team01"
+                placeholder="4-20 位字母、数字或下划线,例如：lab1_team01"
                 required
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}

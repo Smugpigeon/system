@@ -13,6 +13,7 @@ import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
 import type { Task, TaskFormValues, TaskPayload } from '../types/task'
 import { emptyTaskFormValues, taskToFormValues } from '../types/task'
+import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
 
 export function DashboardPage() {
   const { auth, logout } = useAuth()
@@ -24,6 +25,11 @@ export function DashboardPage() {
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const deferredTasks = useDeferredValue(tasks)
+  const [filters, setFilters] = useState<FilterOptions>({
+  status: 'ALL',
+  priority: 'ALL',
+  keyword: ''
+  })
 
   const loadTasks = useCallback(async (preferredTaskId?: number | null) => {
     try {
@@ -56,6 +62,29 @@ export function DashboardPage() {
   useEffect(() => {
     void loadTasks()
   }, [loadTasks])
+
+  const filterTasks = useCallback((tasksToFilter: Task[]): Task[] => {
+  return tasksToFilter.filter(task => {
+    if (filters.status !== 'ALL' && task.status !== filters.status) {
+      return false
+    }
+    if (filters.priority !== 'ALL' && task.priority !== filters.priority) {
+      return false
+    }
+    if (filters.keyword.trim()) {
+      const keyword = filters.keyword.toLowerCase()
+      const titleMatch = task.title.toLowerCase().includes(keyword)
+      const descMatch = task.description?.toLowerCase().includes(keyword) || false
+      if (!titleMatch && !descMatch) {
+        return false
+      }
+    }
+    return true
+  })
+  }, [filters])
+
+  const filteredTasks = filterTasks(deferredTasks)
+  const filteredCount = filteredTasks.length
 
   const selectedTask =
     deferredTasks.find((task) => task.id === selectedTaskId) ?? null
@@ -232,6 +261,14 @@ export function DashboardPage() {
         </article>
       </section>
 
+      <section className="filters-section">
+        <TaskFilters
+          onFilterChange={setFilters}
+          totalCount={deferredTasks.length}
+          filteredCount={filteredCount}
+        />
+      </section>
+      
       <section className="content-grid">
         <article className="panel">
           <header className="panel-header">
@@ -249,7 +286,7 @@ export function DashboardPage() {
           ) : (
             <TaskList
               selectedTaskId={selectedTaskId}
-              tasks={deferredTasks}
+              tasks={filteredTasks}
               onCreate={handleOpenCreate}
               onSelect={handleSelectTask}
             />
