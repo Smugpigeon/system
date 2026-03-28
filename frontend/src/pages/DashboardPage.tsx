@@ -14,6 +14,7 @@ import { AppShell } from '../layout/AppShell'
 import type { Task, TaskFormValues, TaskPayload } from '../types/task'
 import { emptyTaskFormValues, taskToFormValues } from '../types/task'
 import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
+import { Toast } from '../components/Toast'
 
 export function DashboardPage() {
   const { auth, logout } = useAuth()
@@ -30,6 +31,7 @@ export function DashboardPage() {
   priority: 'ALL',
   keyword: ''
   })
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
 
   const loadTasks = useCallback(async (preferredTaskId?: number | null) => {
     try {
@@ -54,6 +56,7 @@ export function DashboardPage() {
       })
     } catch (error) {
       setLoadingError(getErrorMessage(error))
+      setToast({ message: getErrorMessage(error), type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -122,6 +125,7 @@ export function DashboardPage() {
       if (formMode === 'create') {
         const createdTask = await createTask(payload)
         await loadTasks(createdTask.id)
+        setToast({ message: '任务创建成功！', type: 'success' })
         return
       }
 
@@ -132,6 +136,7 @@ export function DashboardPage() {
 
       const updatedTask = await updateTask(selectedTaskId, payload)
       await loadTasks(updatedTask.id)
+      setToast({ message: '任务更新成功！', type: 'success' })
     } catch (error) {
       setSubmitError(getErrorMessage(error))
     } finally {
@@ -154,6 +159,7 @@ export function DashboardPage() {
       setSubmitError('')
       await deleteTask(selectedTaskId)
       await loadTasks()
+      setToast({ message: '任务已删除', type: 'success' })
     } catch (error) {
       setSubmitError(getErrorMessage(error))
     } finally {
@@ -341,6 +347,13 @@ export function DashboardPage() {
           </section>
         </article>
       </section>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </AppShell>
   )
 }
