@@ -1,15 +1,18 @@
 package com.lab.taskmanager.task.service;
 
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
+import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
+import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
+
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -95,5 +98,60 @@ public class TaskService {
                 task.getDueAt(),
                 task.getCreatedAt(),
                 task.getUpdatedAt());
+    }
+
+    public List<TaskResponse> getFilteredTasks(String username, TaskStatus status, TaskPriority priority) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        List<Task> result;
+
+        if (status == null && priority == null) {
+            throw new IllegalArgumentException("请传入一个筛选条件");
+        } else if (status != null && priority == null) {
+            result = taskRepository.findByOwnerIdAndStatus(currentUser.getId(), status);
+        } else if(priority != null && status == null) {
+            result = taskRepository.findByOwnerIdAndPriority(currentUser.getId(), priority);
+        } else {
+            result = taskRepository.findByOwnerIdAndStatusAndPriority(currentUser.getId(), status, priority);
+        }
+
+        return result.stream().map(this::toResponse).toList();
+    }
+
+    public PageResult<TaskResponse> page(PageRequest pageRequest, String username) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+
+        // 构建分页参数（Spring Data 页码从0开始）
+        int pageNumber = Math.max(0, pageRequest.page() - 1);
+        int pageSize = pageRequest.size();
+
+        // 创建 Pageable 对象，并指定排序
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(
+                        pageNumber,
+                        pageSize,
+                        org.springframework.data.domain.Sort.by(
+                                org.springframework.data.domain.Sort.Direction.DESC,
+                                "updatedAt"
+                        )
+                );
+
+        // 调用 JPA 的分页查询
+        org.springframework.data.domain.Page<Task> taskPage =
+                taskRepository.findAllByOwnerId(currentUser.getId(), pageable);
+
+        // 转换为 DTO
+        List<TaskResponse> records = taskPage.getContent()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        // 返回分页结果
+        return new PageResult<>(
+                (int) taskPage.getTotalElements(),
+                taskPage.getTotalPages(),
+                pageRequest.page(),
+                pageSize,
+                records
+        );
     }
 }

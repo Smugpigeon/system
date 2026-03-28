@@ -4,6 +4,10 @@ import com.lab.taskmanager.common.api.ApiResponse;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
+import com.lab.taskmanager.task.dto.PageRequest;
+import com.lab.taskmanager.task.entity.PageResult;
+import com.lab.taskmanager.task.entity.TaskPriority;
+import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -11,14 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -78,5 +75,31 @@ public class TaskController {
             Authentication authentication) {
         taskService.deleteTask(authentication.getName(), taskId);
         return ResponseEntity.ok(ApiResponse.success("任务删除成功"));
+    }
+
+    /**
+     * get filtered tasks on status or priority
+     * @param status
+     * @param priority
+     * @param authentication
+     * @return
+     */
+    @GetMapping("/filter")
+    public ResponseEntity<ApiResponse<List<TaskResponse>>> getFilteredTasks(
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority,
+            Authentication authentication
+    ){
+        List<TaskResponse> filteredTasks = taskService.getFilteredTasks(authentication.getName(), status, priority);
+        return ResponseEntity.ok(ApiResponse.success("筛选任务获取成功", filteredTasks));
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> page(
+            @RequestBody PageRequest pageRequest,
+            Authentication authentication
+    ) {
+        PageResult<TaskResponse> pageResult = taskService.page(pageRequest, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("分页结果获取成功", pageResult));
     }
 }
