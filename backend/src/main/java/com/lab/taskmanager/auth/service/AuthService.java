@@ -3,6 +3,7 @@ package com.lab.taskmanager.auth.service;
 import com.lab.taskmanager.auth.dto.AuthResponse;
 import com.lab.taskmanager.auth.dto.LoginRequest;
 import com.lab.taskmanager.auth.dto.RegisterRequest;
+import com.lab.taskmanager.auth.dto.UserInfoResponse;
 import com.lab.taskmanager.auth.security.JwtService;
 import com.lab.taskmanager.common.exception.BusinessException;
 import com.lab.taskmanager.user.entity.User;
@@ -53,5 +54,17 @@ public class AuthService {
         }
 
         return new AuthResponse(user.getId(), user.getUsername(), jwtService.generateToken(user));
+    }
+
+    /**
+     * Get current user information by username.
+     * 
+     * @param username the username of the authenticated user
+     * @return current user info
+     */
+    public UserInfoResponse getCurrentUser(String username) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new BusinessException("用户不存在"));
+        return new UserInfoResponse(user.getId(), user.getUsername());
     }
 }
