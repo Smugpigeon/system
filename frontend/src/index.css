@@ -841,3 +841,21 @@ button {
     left: 1rem;
   }
 }
+
+.input-error {
+  border-color: var(--ember) !important;
+}
+
+.field-error {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--ember);
+  margin-top: 0.25rem;
+}
+
+.field-hint {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  margin-top: 0.25rem;
+}

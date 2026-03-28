@@ -14,13 +14,60 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [usernameError, setUsernameError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
   if (isAuthenticated) {
     return <Navigate to="/tasks" replace />
   }
 
+  const validateUsername = (value: string) => {
+    if (!value) {
+      setUsernameError('')
+      return false
+    }
+    const usernameRegex = /^[A-Za-z0-9_]{4,20}$/
+    if (!usernameRegex.test(value)) {
+      setUsernameError('用户名格式不正确（4-20位字母、数字、下划线）')
+      return false
+    }
+    setUsernameError('')
+    return true
+  }
+
+  const validatePassword = (value: string) => {
+    if (!value) {
+      setPasswordError('')
+      return false
+    }
+    if (value.length < 6) {
+      setPasswordError('密码长度至少6位')
+      return false
+    }
+    setPasswordError('')
+    return true
+  }
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setUsername(value)
+    validateUsername(value)
+  }
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setPassword(value)
+    validatePassword(value)
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    if (!validateUsername(username) || !validatePassword(password)) {
+      setError('请正确填写用户名和密码')
+      return
+    }
+
     try {
       setIsSubmitting(true)
       setError('')
@@ -35,6 +82,12 @@ export function LoginPage() {
     }
   }
 
+  const isFormValid = 
+    username && 
+    password && 
+    !usernameError && 
+    !passwordError
+  
   return (
     <AppShell
       title="Ship the minimum viable collaboration system with a solid base."
@@ -80,8 +133,10 @@ export function LoginPage() {
                 placeholder="4-20 位字母、数字或下划线"
                 required
                 value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                onChange={handleUsernameChange}
+                className={usernameError ? 'input-error' : ''}
               />
+              {usernameError && <span className="field-error">{usernameError}</span>}
             </div>
 
             <div className="field">
@@ -94,13 +149,19 @@ export function LoginPage() {
                 required
                 type="password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={handlePasswordChange}
+                className={passwordError ? 'input-error' : ''}
               />
+              {passwordError && <span className="field-error">{passwordError}</span>}
             </div>
 
             {error ? <div className="message message--error">{error}</div> : null}
 
-            <button className="button-primary" disabled={isSubmitting} type="submit">
+            <button 
+              className="button-primary" 
+              disabled={isSubmitting || !isFormValid} 
+              type="submit"
+            >
               {isSubmitting ? '登录中...' : '登录并进入任务台'}
             </button>
           </form>
