@@ -4,6 +4,7 @@ import com.lab.taskmanager.common.exception.ResourceNotFoundException;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
+import com.lab.taskmanager.task.algorithm.TaskRankingService;
 import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
@@ -20,10 +21,26 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserService userService;
+    private final TaskRankingService taskRankingService;
 
     public List<TaskResponse> listTasks(String username) {
         User currentUser = userService.findByUsernameOrThrow(username);
         return taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /**
+     * Provide a ranked task view for future dashboard or recommendation features.
+     *
+     * @param username current user name
+     * @return tasks ordered by urgency and priority
+     */
+    public List<TaskResponse> listRecommendedTasks(String username) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        List<Task> tasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
+        return taskRankingService.sortTasks(tasks)
                 .stream()
                 .map(this::toResponse)
                 .toList();
