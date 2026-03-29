@@ -4,3 +4,13 @@
 *.ptx
 *.cubin
 *.fatbin
+
+.DS_Store
+.idea/
+.vscode/
+
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/target/
+backend/data/
+
+*.log
