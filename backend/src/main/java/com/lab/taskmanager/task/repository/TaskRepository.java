@@ -18,6 +18,5 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByOwnerIdAndPriority(Long id, TaskPriority priority);
 
-
     List<Task> findByOwnerIdAndStatusAndPriority(Long id, TaskStatus status, TaskPriority priority);
 }
