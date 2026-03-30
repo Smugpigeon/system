@@ -33,7 +33,7 @@ class AuthControllerTest {
 
     @Test
     void registerShouldReturnCreated() throws Exception {
-        when(authService.register(any())).thenReturn(new AuthResponse(1L, "alice_01"));
+        when(authService.register(any())).thenReturn(new AuthResponse(1L, "alice_01", "asdfsdfadsf"));
 
         String requestBody = """
                 {
@@ -54,7 +54,7 @@ class AuthControllerTest {
 
     @Test
     void loginShouldReturnOk() throws Exception {
-        when(authService.login(any())).thenReturn(new AuthResponse(2L, "bob_02"));
+        when(authService.login(any())).thenReturn(new AuthResponse(2L, "bob_02", "dsfasdfasd"));
 
         String requestBody = objectMapper.writeValueAsString(
                 new LoginRequestBody("bob_02", "abc123"));

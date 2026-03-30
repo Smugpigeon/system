@@ -3,11 +3,11 @@ package com.lab.taskmanager.auth.service;
 import com.lab.taskmanager.auth.dto.AuthResponse;
 import com.lab.taskmanager.auth.dto.LoginRequest;
 import com.lab.taskmanager.auth.dto.RegisterRequest;
+import com.lab.taskmanager.auth.security.JwtService;
 import com.lab.taskmanager.common.exception.BusinessException;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +20,9 @@ public class AuthService {
 
     private final UserRepository userRepository;
 
-    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
+
+    private final JwtService jwtService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -59,6 +61,7 @@ public class AuthService {
     }
 
     private AuthResponse buildAuthResponse(User user) {
-        return new AuthResponse(user.getId(), user.getUsername());
+        String token = jwtService.generateToken(user);
+        return new AuthResponse(user.getId(), user.getUsername(), token);
     }
 }
