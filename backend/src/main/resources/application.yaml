@@ -31,9 +31,13 @@ springdoc:
   api-docs:
     path: /v3/api-docs
   group-configs:
-    - group: 'default'
+    - group: 'auth'
+      paths-to-match: '/**'
+      packages-to-scan: com.lab.taskmanager.auth.controller
+    - group: 'task'
       paths-to-match: '/**'
       packages-to-scan: com.lab.taskmanager.task.controller
+
 # knife4j的增强配置
 knife4j:
   enable: true
