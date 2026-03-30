@@ -46,6 +46,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @SuppressWarnings("deprecation")
     public AuthenticationProvider authenticationProvider(
             CustomUserDetailsService customUserDetailsService,
             PasswordEncoder passwordEncoder) {
