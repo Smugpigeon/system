@@ -5,7 +5,6 @@ import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
-import com.lab.taskmanager.task.algorithm.TaskRankingService;
 import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
@@ -23,26 +22,10 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserService userService;
-    private final TaskRankingService taskRankingService;
 
     public List<TaskResponse> listTasks(String username) {
         User currentUser = userService.findByUsernameOrThrow(username);
         return taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId())
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
-
-    /**
-     * Provide a ranked task view for future dashboard or recommendation features.
-     *
-     * @param username current user name
-     * @return tasks ordered by urgency and priority
-     */
-    public List<TaskResponse> listRecommendedTasks(String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        List<Task> tasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
-        return taskRankingService.sortTasks(tasks)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -89,6 +72,55 @@ public class TaskService {
         taskRepository.delete(task);
     }
 
+    public PageResult<TaskResponse> page(PageRequest pageRequest, String username) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        int pageNumber = Math.max(0, pageRequest.page() - 1);
+        int pageSize = pageRequest.size();
+
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(
+                        pageNumber,
+                        pageSize,
+                        org.springframework.data.domain.Sort.by(
+                                org.springframework.data.domain.Sort.Direction.DESC,
+                                "updatedAt"));
+
+        org.springframework.data.domain.Page<Task> taskPage =
+                taskRepository.findAllByOwnerId(currentUser.getId(), pageable);
+
+        List<TaskResponse> records = taskPage.getContent()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return new PageResult<>(
+                (int) taskPage.getTotalElements(),
+                taskPage.getTotalPages(),
+                pageRequest.page(),
+                pageSize,
+                records);
+    }
+
+    public List<TaskResponse> getFilteredTasks(String username, TaskStatus status, TaskPriority priority) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        List<Task> result;
+
+        if (status == null && priority == null) {
+            result = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
+        } else if (status != null && priority == null) {
+            result = taskRepository.findByOwnerIdAndStatusOrderByUpdatedAtDesc(currentUser.getId(), status);
+        } else if (priority != null && status == null) {
+            result = taskRepository.findByOwnerIdAndPriorityOrderByUpdatedAtDesc(currentUser.getId(), priority);
+        } else {
+            result = taskRepository.findByOwnerIdAndStatusAndPriorityOrderByUpdatedAtDesc(
+                    currentUser.getId(),
+                    status,
+                    priority);
+        }
+
+        return result.stream().map(this::toResponse).toList();
+    }
+
     private Task findTaskOrThrow(Long ownerId, Long taskId) {
         return taskRepository.findByIdAndOwnerId(taskId, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("任务不存在，或你无权访问该任务"));
@@ -118,43 +150,5 @@ public class TaskService {
                 task.getDueAt(),
                 task.getCreatedAt(),
                 task.getUpdatedAt());
-    }
-
-    public PageResult<TaskResponse> page(PageRequest pageRequest, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-
-        // 构建分页参数（Spring Data 页码从0开始）
-        int pageNumber = Math.max(0, pageRequest.page() - 1);
-        int pageSize = pageRequest.size();
-
-        // 创建 Pageable 对象，并指定排序
-        org.springframework.data.domain.Pageable pageable =
-                org.springframework.data.domain.PageRequest.of(
-                        pageNumber,
-                        pageSize,
-                        org.springframework.data.domain.Sort.by(
-                                org.springframework.data.domain.Sort.Direction.DESC,
-                                "updatedAt"
-                        )
-                );
-
-        // 调用 JPA 的分页查询
-        org.springframework.data.domain.Page<Task> taskPage =
-                taskRepository.findAllByOwnerId(currentUser.getId(), pageable);
-
-        // 转换为 DTO
-        List<TaskResponse> records = taskPage.getContent()
-                .stream()
-                .map(this::toResponse)
-                .toList();
-
-        // 返回分页结果
-        return new PageResult<>(
-                (int) taskPage.getTotalElements(),
-                taskPage.getTotalPages(),
-                pageRequest.page(),
-                pageSize,
-                records
-        );
     }
 }

@@ -6,6 +6,8 @@ import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
 import com.lab.taskmanager.task.entity.PageResult;
+import com.lab.taskmanager.task.entity.TaskPriority;
+import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -72,9 +75,17 @@ public class TaskController {
     @GetMapping("/page")
     public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> page(
             @RequestBody PageRequest pageRequest,
-            Principal principal
-    ) {
+            Principal principal) {
         PageResult<TaskResponse> pageResult = taskService.page(pageRequest, principal.getName());
         return ResponseEntity.ok(ApiResponse.success("分页结果获取成功", pageResult));
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<ApiResponse<List<TaskResponse>>> getFilteredTasks(
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority,
+            Principal principal) {
+        List<TaskResponse> filteredTasks = taskService.getFilteredTasks(principal.getName(), status, priority);
+        return ResponseEntity.ok(ApiResponse.success("筛选任务获取成功", filteredTasks));
     }
 }
