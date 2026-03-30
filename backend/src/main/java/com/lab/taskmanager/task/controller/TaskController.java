@@ -66,4 +66,13 @@ public class TaskController {
         taskService.deleteTask(principal.getName(), taskId);
         return ResponseEntity.ok(ApiResponse.success("任务删除成功"));
     }
+
+    @GetMapping("/page")
+    public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> page(
+            @RequestBody PageRequest pageRequest,
+            Authentication authentication
+    ) {
+        PageResult<TaskResponse> pageResult = taskService.page(pageRequest, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("分页结果获取成功", pageResult));
+    }
 }
