@@ -45,6 +45,7 @@ knife4j:
     language: zh_cn
 
 # JWT 配置
-jwt:
-  secret: ${APP_JWT_SECRET:VGFza01hbmFnZXJMYWIxVG9rZW5TZWNyZXRLZXlGb3JDb3Vyc2VQcm9qZWN0MjAyNg==}
-  expiration: 86400000
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:VGFza01hbmFnZXJMYWIxVG9rZW5TZWNyZXRLZXlGb3JDb3Vyc2VQcm9qZWN0MjAyNg==}
+    expiration-minutes: ${APP_JWT_EXPIRATION_MINUTES:720}
