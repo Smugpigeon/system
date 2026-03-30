@@ -9,6 +9,8 @@ import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.security.Principal;
 import java.util.List;
@@ -28,17 +30,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/tasks")
 @RequiredArgsConstructor
+@Tag(name = "任务管理", description = "提供任务管理接口")
 public class TaskController {
 
     private final TaskService taskService;
 
     @GetMapping
+    @Operation(summary = "获取任务列表", description = "获取当前用户的所有任务")
     public ResponseEntity<ApiResponse<List<TaskResponse>>> listTasks(Principal principal) {
         List<TaskResponse> tasks = taskService.listTasks(principal.getName());
         return ResponseEntity.ok(ApiResponse.success("任务列表获取成功", tasks));
     }
 
     @PostMapping
+    @Operation(summary = "创建任务", description = "为当前用户创建一个新任务")
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
             @Valid @RequestBody TaskCreateRequest request,
             Principal principal) {
@@ -48,6 +53,7 @@ public class TaskController {
     }
 
     @GetMapping("/{taskId}")
+    @Operation(summary = "获取任务详情", description = "根据任务ID获取任务的详细信息")
     public ResponseEntity<ApiResponse<TaskResponse>> getTask(
             @PathVariable Long taskId,
             Principal principal) {
@@ -56,6 +62,7 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}")
+    @Operation(summary = "更新任务", description = "根据任务ID更新任务的相关信息")
     public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
             @PathVariable Long taskId,
             @Valid @RequestBody TaskUpdateRequest request,
@@ -65,6 +72,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{taskId}")
+    @Operation(summary = "删除任务", description = "根据任务ID删除任务")
     public ResponseEntity<ApiResponse<Void>> deleteTask(
             @PathVariable Long taskId,
             Principal principal) {
@@ -73,6 +81,7 @@ public class TaskController {
     }
 
     @GetMapping("/page")
+    @Operation(summary = "分页获取任务", description = "根据分页参数获取当前用户的任务列表")
     public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> page(
             @RequestBody PageRequest pageRequest,
             Principal principal) {
@@ -81,6 +90,7 @@ public class TaskController {
     }
 
     @GetMapping("/filter")
+    @Operation(summary = "筛选任务", description = "根据任务状态和优先级筛选当前用户的任务列表")
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getFilteredTasks(
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
