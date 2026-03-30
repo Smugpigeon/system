@@ -24,6 +24,9 @@ backend/
     └── test/
         └── java/com/lab/taskmanager/BackendApplicationTests.java
 ```
+## API文档
+集成Knife4j+Swagger生成API文档，方便前后端联调，访问以下地址查看：
+- `http://localhost:8080/doc.html`
 
 ## 本地启动
 
