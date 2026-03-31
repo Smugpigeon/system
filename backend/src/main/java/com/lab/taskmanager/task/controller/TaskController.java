@@ -36,9 +36,11 @@ public class TaskController {
     private final TaskService taskService;
 
     @GetMapping
-    @Operation(summary = "获取任务列表", description = "获取当前用户的所有任务")
-    public ResponseEntity<ApiResponse<List<TaskResponse>>> listTasks(Principal principal) {
-        List<TaskResponse> tasks = taskService.listTasks(principal.getName());
+    @Operation(summary = "获取任务列表", description = "获取当前用户的所有任务，支持按智能排序")
+    public ResponseEntity<ApiResponse<List<TaskResponse>>> listTasks(
+            @RequestParam(required = false, defaultValue = "updatedAt") String sortBy,
+            Principal principal) {
+        List<TaskResponse> tasks = taskService.listTasks(principal.getName(), sortBy);
         return ResponseEntity.ok(ApiResponse.success("任务列表获取成功", tasks));
     }
 

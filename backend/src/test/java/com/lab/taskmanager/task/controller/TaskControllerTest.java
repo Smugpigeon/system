@@ -41,7 +41,7 @@ class TaskControllerTest {
 
     @Test
     void listTasksShouldReturnCurrentUsersTasks() throws Exception {
-        when(taskService.listTasks("alice")).thenReturn(List.of(buildResponse(1L, "write report")));
+        when(taskService.listTasks("alice", "updatedBy")).thenReturn(List.of(buildResponse(1L, "write report")));
 
         mockMvc.perform(get("/api/tasks").principal(() -> "alice"))
                 .andExpect(status().isOk())

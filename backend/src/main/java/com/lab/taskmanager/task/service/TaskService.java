@@ -1,6 +1,7 @@
 package com.lab.taskmanager.task.service;
 
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
+import com.lab.taskmanager.task.algorithm.TaskRankingService;
 import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
@@ -13,6 +14,7 @@ import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
 import java.util.List;
+import java.util.Comparator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,11 +24,15 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final UserService userService;
+    private final TaskRankingService taskRankingService;
 
-    public List<TaskResponse> listTasks(String username) {
+    public List<TaskResponse> listTasks(String username, String sortBy) {
         User currentUser = userService.findByUsernameOrThrow(username);
-        return taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId())
-                .stream()
+        List<Task> tasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
+
+        tasks = applySorting(tasks, sortBy);
+
+        return tasks.stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -76,26 +82,24 @@ public class TaskService {
         User currentUser = userService.findByUsernameOrThrow(username);
         int pageNumber = Math.max(0, pageRequest.page() - 1);
         int pageSize = pageRequest.size();
+        String sortBy = pageRequest.sortBy();
 
-        org.springframework.data.domain.Pageable pageable =
-                org.springframework.data.domain.PageRequest.of(
-                        pageNumber,
-                        pageSize,
-                        org.springframework.data.domain.Sort.by(
-                                org.springframework.data.domain.Sort.Direction.DESC,
-                                "updatedAt"));
-
-        org.springframework.data.domain.Page<Task> taskPage =
-                taskRepository.findAllByOwnerId(currentUser.getId(), pageable);
-
-        List<TaskResponse> records = taskPage.getContent()
-                .stream()
+        List<Task> allTasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
+        List<Task> sortedTasks = applySorting(allTasks, sortBy);
+        
+        int start = pageNumber * pageSize;
+        int end = Math.min(start + pageSize, sortedTasks.size());
+        List<Task> pagedTasks = start < sortedTasks.size() ? 
+                                    sortedTasks.subList(start, end) : 
+                                    java.util.Collections.emptyList();
+        
+        List<TaskResponse> records = pagedTasks.stream()
                 .map(this::toResponse)
                 .toList();
-
+        
         return new PageResult<>(
-                (int) taskPage.getTotalElements(),
-                taskPage.getTotalPages(),
+                sortedTasks.size(),
+                (int) Math.ceil((double) sortedTasks.size() / pageSize),
                 pageRequest.page(),
                 pageSize,
                 records);
@@ -150,5 +154,56 @@ public class TaskService {
                 task.getDueAt(),
                 task.getCreatedAt(),
                 task.getUpdatedAt());
+    }
+
+    /**
+     * Sorts the given task list based on the specified sorting criteria.
+     * 
+     * @param tasks the list of tasks to be sorted
+     * @param sortBy the sorting criteria, supports:
+     *               - rank: intelligent sorting based on priority, status, and due date
+     *               - dueAt: ascending by due date (most urgent first, null values last)
+     *               - createdAt: descending by creation date (newest first)
+     *               - priority: descending by priority (HIGH > MEDIUM > LOW)
+     *               - status: ascending by status
+     *               - updatedAt: descending by update time (default, newest first)
+     * @return the sorted list of tasks
+     */
+    private List<Task> applySorting(List<Task> tasks, String sortBy) {
+
+        switch (sortBy.toLowerCase()) {
+            case "rank":
+                return taskRankingService.sortTasks(tasks);
+            
+            case "dueat":
+                return tasks.stream()
+                        .sorted(Comparator.comparing(Task::getDueAt,
+                                Comparator.nullsLast(Comparator.naturalOrder())))
+                        .toList();
+
+            case "createdat":
+                return tasks.stream()
+                        .sorted(Comparator.comparing(Task::getCreatedAt,
+                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                        .toList();
+
+            case "priority":
+                return tasks.stream()
+                        .sorted(Comparator.comparing(Task::getPriority,
+                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                        .toList();
+
+            case "status":
+                return tasks.stream()
+                        .sorted(Comparator.comparing(Task::getStatus,
+                                Comparator.nullsLast(Comparator.naturalOrder())))
+                        .toList();
+
+            default: // updatedAt
+                return tasks.stream()
+                        .sorted(Comparator.comparing(Task::getUpdatedAt,
+                                Comparator.nullsLast(Comparator.naturalOrder())))
+                        .toList();
+        }
     }
 }
