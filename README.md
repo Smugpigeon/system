@@ -30,6 +30,8 @@ backend/
 
 ## 本地启动
 
+### 启动后端
+
 ```bash
 cd backend
 ./mvnw spring-boot:run
@@ -37,11 +39,26 @@ cd backend
 
 默认端口：
 
-- `http://localhost:8080`
+- http://localhost:8080
 
 H2 Console：
 
-- `http://localhost:8080/h2-console`
+- http://localhost:8080/h2-console
+
+Swagger：
+
+- http://localhost:8080/swagger-ui/index.html
+
+### 启动前端
+
+```bash
+cd frontend
+cp .env.example .env
+npm ci # 不修改package-lock.json
+npm run dev
+```
+
+默认地址：http://localhost:5173
 
 ## 下一步计划
 
