@@ -1,20 +1,19 @@
 import {
   startTransition,
   useCallback,
-  useDeferredValue,
   useEffect,
   useState,
 } from 'react'
-import { createTask, deleteTask, fetchTasks, updateTask } from '../api/tasks'
+import { createTask, deleteTask, fetchTasks, updateTask, type TaskQueryParams } from '../api/tasks'
 import { getErrorMessage } from '../api/http'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
+import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
+import { Toast } from '../components/Toast'
 import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
 import type { Task, TaskFormValues, TaskPayload } from '../types/task'
 import { emptyTaskFormValues, taskToFormValues } from '../types/task'
-import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
-import { Toast } from '../components/Toast'
 
 export function DashboardPage() {
   const { auth, logout } = useAuth()
@@ -25,34 +24,69 @@ export function DashboardPage() {
   const [loadingError, setLoadingError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const deferredTasks = useDeferredValue(tasks)
+  
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(10)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalRecords, setTotalRecords] = useState(0)
+  
   const [filters, setFilters] = useState<FilterOptions>({
-  status: 'ALL',
-  priority: 'ALL',
-  keyword: ''
+    status: 'ALL',
+    priority: 'ALL',
+    keyword: ''
   })
+  
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
 
-  const loadTasks = useCallback(async (preferredTaskId?: number | null) => {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true)
       setLoadingError('')
-      const nextTasks = await fetchTasks()
-      startTransition(() => {
-        setTasks(nextTasks)
-        if (!nextTasks.length) {
+      
+      const params: TaskQueryParams = {
+        page: currentPage,
+        size: pageSize,
+        sortBy: 'updatedAt'
+      }
+      
+      if (filters.status !== 'ALL') {
+        params.status = filters.status
+      }
+      if (filters.priority !== 'ALL') {
+        params.priority = filters.priority
+      }
+      
+      const pageData = await fetchTasks(params)
+      
+      startTransition(() => { 
+        setTotalPages(pageData.totalPages)
+        setTotalRecords(pageData.totalRecords)
+        
+        let filteredRecords = pageData.records
+        if (filters.keyword.trim()) {
+          const keyword = filters.keyword.toLowerCase()
+          filteredRecords = pageData.records.filter(task => 
+            task.title.toLowerCase().includes(keyword) ||
+            (task.description && task.description.toLowerCase().includes(keyword))
+          )
+        }
+        
+        setTasks(filteredRecords)
+        
+        if (!filteredRecords.length) {
           setSelectedTaskId(null)
           setFormMode('create')
-          return
+        } else {
+          if (formMode === 'create' && selectedTaskId === null) {
+            return
+          }
+          const stillExists = filteredRecords.some(t => t.id === selectedTaskId)
+          if (stillExists && selectedTaskId) {
+          } else {
+            setSelectedTaskId(filteredRecords[0].id)
+            setFormMode('edit')
+          }
         }
-
-        const nextSelection =
-          preferredTaskId && nextTasks.some((task) => task.id === preferredTaskId)
-            ? preferredTaskId
-            : nextTasks[0].id
-
-        setSelectedTaskId(nextSelection)
-        setFormMode(nextSelection ? 'edit' : 'create')
       })
     } catch (error) {
       setLoadingError(getErrorMessage(error))
@@ -60,42 +94,19 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentPage, filters.status, filters.priority, filters.keyword, pageSize, selectedTaskId])
 
   useEffect(() => {
-    void loadTasks()
-  }, [loadTasks])
+    loadTasks()
+  }, [currentPage, filters.status, filters.priority, loadTasks])
 
-  const filterTasks = useCallback((tasksToFilter: Task[]): Task[] => {
-  return tasksToFilter.filter(task => {
-    if (filters.status !== 'ALL' && task.status !== filters.status) {
-      return false
-    }
-    if (filters.priority !== 'ALL' && task.priority !== filters.priority) {
-      return false
-    }
-    if (filters.keyword.trim()) {
-      const keyword = filters.keyword.toLowerCase()
-      const titleMatch = task.title.toLowerCase().includes(keyword)
-      const descMatch = task.description?.toLowerCase().includes(keyword) || false
-      if (!titleMatch && !descMatch) {
-        return false
-      }
-    }
-    return true
-  })
-  }, [filters])
+  const handleRefresh = () => {
+    loadTasks()
+  }
 
-  const filteredTasks = filterTasks(deferredTasks)
-  const filteredCount = filteredTasks.length
-
-  const selectedTask =
-    deferredTasks.find((task) => task.id === selectedTaskId) ?? null
-
-  const summary = {
-    total: tasks.length,
-    pending: tasks.filter((task) => task.status !== 'DONE').length,
-    done: tasks.filter((task) => task.status === 'DONE').length,
+  const handleFilterChange = (newFilters: FilterOptions) => {
+    setFilters(newFilters)
+    setCurrentPage(1) 
   }
 
   const handleOpenCreate = () => {
@@ -123,9 +134,10 @@ export function DashboardPage() {
       setIsSubmitting(true)
       setSubmitError('')
       if (formMode === 'create') {
-        const createdTask = await createTask(payload)
-        await loadTasks(createdTask.id)
+        await createTask(payload)
         setToast({ message: '任务创建成功！', type: 'success' })
+        setCurrentPage(1)
+        await loadTasks()
         return
       }
 
@@ -134,37 +146,43 @@ export function DashboardPage() {
         return
       }
 
-      const updatedTask = await updateTask(selectedTaskId, payload)
-      await loadTasks(updatedTask.id)
+      await updateTask(selectedTaskId, payload)
       setToast({ message: '任务更新成功！', type: 'success' })
+      await loadTasks()
     } catch (error) {
       setSubmitError(getErrorMessage(error))
+      setToast({ message: getErrorMessage(error), type: 'error' })
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!selectedTaskId) {
-      return
-    }
+    if (!selectedTaskId) return
 
     const confirmed = window.confirm('确认删除当前任务吗？该操作不可撤销。')
-    if (!confirmed) {
-      return
-    }
+    if (!confirmed) return
 
     try {
       setIsSubmitting(true)
       setSubmitError('')
       await deleteTask(selectedTaskId)
-      await loadTasks()
       setToast({ message: '任务已删除', type: 'success' })
+      await loadTasks()
     } catch (error) {
       setSubmitError(getErrorMessage(error))
+      setToast({ message: getErrorMessage(error), type: 'error' })
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+
+  const summary = {
+    total: totalRecords,
+    pending: tasks.filter((task) => task.status !== 'DONE').length,
+    done: tasks.filter((task) => task.status === 'DONE').length,
   }
 
   return (
@@ -239,7 +257,7 @@ export function DashboardPage() {
           <button
             className="button-ghost"
             type="button"
-            onClick={() => void loadTasks(selectedTaskId)}
+            onClick={handleRefresh}
           >
             刷新列表
           </button>
@@ -269,9 +287,9 @@ export function DashboardPage() {
 
       <section className="filters-section">
         <TaskFilters
-          onFilterChange={setFilters}
-          totalCount={deferredTasks.length}
-          filteredCount={filteredCount}
+          onFilterChange={handleFilterChange}
+          totalCount={totalRecords}
+          filteredCount={tasks.length}
         />
       </section>
       
@@ -290,12 +308,43 @@ export function DashboardPage() {
           ) : loadingError ? (
             <div className="message message--error">{loadingError}</div>
           ) : (
-            <TaskList
-              selectedTaskId={selectedTaskId}
-              tasks={filteredTasks}
-              onCreate={handleOpenCreate}
-              onSelect={handleSelectTask}
-            />
+            <>
+              <TaskList
+                selectedTaskId={selectedTaskId}
+                tasks={tasks}
+                onCreate={handleOpenCreate}
+                onSelect={handleSelectTask}
+              />
+              
+              {/* 分页组件 */}
+              {totalPages > 1 && (
+                <div style={{ 
+                  marginTop: '1rem', 
+                  display: 'flex', 
+                  gap: '0.5rem', 
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}>
+                  <button 
+                    className="button-ghost"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                  >
+                    上一页
+                  </button>
+                  <span style={{ padding: '0 1rem' }}>
+                    第 {currentPage} / {totalPages} 页
+                  </span>
+                  <button 
+                    className="button-ghost"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                  >
+                    下一页
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </article>
 
@@ -315,10 +364,11 @@ export function DashboardPage() {
           </header>
 
           <TaskForm
+            key={formMode === 'create' ? 'create' : selectedTaskId}
             mode={formMode}
             initialValues={
               formMode === 'create'
-                ? emptyTaskFormValues
+                ? { ...emptyTaskFormValues }
                 : taskToFormValues(selectedTask)
             }
             error={submitError}
@@ -347,6 +397,7 @@ export function DashboardPage() {
           </section>
         </article>
       </section>
+      
       {toast && (
         <Toast
           message={toast.message}
