@@ -40,7 +40,11 @@ public class TaskController {
 
     @GetMapping
     @Operation(summary = "获取任务列表", description = "获取当前用户的所有任务，支持按智能排序")
-    public ResponseEntity<ApiResponse<List<TaskResponse>>> listTasks(
+    public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> listTasks(
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer size,
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority,
             @RequestParam(required = false, defaultValue = "updatedAt")
             @Parameter(description = "Ranking Criteria", 
                    example = "rank",
@@ -48,7 +52,8 @@ public class TaskController {
                        "rank", "dueAt", "createdAt", "priority", "status", "updatedAt"
                    })) String sortBy,
             Principal principal) {
-        List<TaskResponse> tasks = taskService.listTasks(principal.getName(), SortBy.fromString(sortBy));
+        PageRequest pageRequest = PageRequest.of(size, page, sortBy);
+        PageResult<TaskResponse> tasks = taskService.listTasks(principal.getName(), status, priority, pageRequest);
         return ResponseEntity.ok(ApiResponse.success("任务列表获取成功", tasks));
     }
 
@@ -90,8 +95,13 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success("任务删除成功"));
     }
 
+    /**
+     * @deprecated This interface has been integrated into GET /api/tasks and will be removed in v2.0.
+     * Please use the unified GET /api/tasks endpoint, which supports pagination, filtering, and sorting.
+     */
+    @Deprecated(forRemoval = true)
     @GetMapping("/page")
-    @Operation(summary = "分页获取任务", description = "根据分页参数获取当前用户的任务列表")
+    @Operation(summary = "分页获取任务", description = "根据分页参数获取当前用户的任务列表，此接口已废弃，请使用 GET /api/tasks 统一接口")
     public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> page(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
@@ -104,13 +114,24 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success("分页结果获取成功", pageResult));
     }
 
+    /**
+     * @deprecated This interface has been integrated into GET /api/tasks and will be removed in v2.0.
+     * Please use the unified GET /api/tasks endpoint, which supports pagination, filtering, and sorting.
+     */
+    @Deprecated(forRemoval = true)
     @GetMapping("/filter")
-    @Operation(summary = "筛选任务", description = "根据任务状态和优先级筛选当前用户的任务列表")
+    @Operation(summary = "筛选任务", description = "根据任务状态和优先级筛选当前用户的任务列表，此接口已废弃，请使用 GET /api/tasks 统一接口")
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getFilteredTasks(
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false, defaultValue = "updatedAt")
+            @Parameter(description = "Ranking Criteria", 
+                   example = "rank",
+                   schema = @Schema(allowableValues = {
+                       "rank", "dueAt", "createdAt", "priority", "status", "updatedAt"
+                   })) String sortBy,
             Principal principal) {
-        List<TaskResponse> filteredTasks = taskService.getFilteredTasks(principal.getName(), status, priority);
+        List<TaskResponse> filteredTasks = taskService.getFilteredTasks(principal.getName(), status, priority, SortBy.fromString(sortBy));
         return ResponseEntity.ok(ApiResponse.success("筛选任务获取成功", filteredTasks));
     }
 }

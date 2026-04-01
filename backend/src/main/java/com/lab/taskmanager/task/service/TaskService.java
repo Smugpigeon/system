@@ -17,6 +17,10 @@ import com.lab.taskmanager.user.service.UserService;
 import java.util.List;
 import java.util.Comparator;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,15 +31,89 @@ public class TaskService {
     private final UserService userService;
     private final TaskRankingService taskRankingService;
 
-    public List<TaskResponse> listTasks(String username, SortBy sortBy) {
+    public PageResult<TaskResponse> listTasks(String username, TaskStatus status, TaskPriority priority, PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
-        List<Task> tasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
 
-        tasks = applySorting(tasks, sortBy);
+        if (pageRequest.sortBy() == SortBy.RANK) {
+            return listTasksWithRankSorting(currentUser, status, priority, pageRequest);
+        }
 
-        return tasks.stream()
-                .map(this::toResponse)
-                .toList();
+        // Establish Sorting
+        Sort.Direction direction = Sort.Direction.DESC;
+        String sortField = pageRequest.sortBy().getValue();
+        if (pageRequest.sortBy() == SortBy.DUE_AT || pageRequest.sortBy() == SortBy.STATUS) {
+            direction = Sort.Direction.ASC;
+        }
+
+        // Establish Page Request
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(
+            pageRequest.page() - 1, 
+            pageRequest.size(),
+            Sort.by(direction, sortField)
+        );
+
+        // Handles filtering, sorting, and pagination in database layer
+        Page<Task> taskPage;
+        if (status != null && priority != null) {
+            taskPage = taskRepository.findByOwnerIdAndStatusAndPriority(
+                    currentUser.getId(), status, priority, pageable);
+        } else if (status != null) {
+            taskPage = taskRepository.findByOwnerIdAndStatus(
+                    currentUser.getId(), status, pageable);
+        } else if (priority != null) {
+            taskPage = taskRepository.findByOwnerIdAndPriority(
+                    currentUser.getId(), priority, pageable);
+        } else {
+            taskPage = taskRepository.findAllByOwnerId(
+                    currentUser.getId(), pageable);
+        }
+
+        List<TaskResponse> records = taskPage.getContent()
+            .stream()
+            .map(this::toResponse)
+            .toList();
+
+        return new PageResult<>(
+            (int) taskPage.getTotalElements(),
+            taskPage.getTotalPages(),
+            pageRequest.page(),
+            pageRequest.size(),
+            records);
+    }
+
+    private PageResult<TaskResponse> listTasksWithRankSorting(User currentUser, TaskStatus status, TaskPriority priority, PageRequest pageRequest) {
+        
+        // Filtering
+        List<Task> filteredTasks;
+
+        if (status == null && priority == null) {
+            filteredTasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
+        } else if (status != null && priority == null) {
+            filteredTasks = taskRepository.findByOwnerIdAndStatusOrderByUpdatedAtDesc(currentUser.getId(), status);
+        } else if (priority != null && status == null) {
+            filteredTasks = taskRepository.findByOwnerIdAndPriorityOrderByUpdatedAtDesc(currentUser.getId(), priority);
+        } else {
+            filteredTasks = taskRepository.findByOwnerIdAndStatusAndPriorityOrderByUpdatedAtDesc(
+                    currentUser.getId(),
+                    status,
+                    priority);
+        }
+        
+        // Sorting
+        List<Task> sortedTasks = taskRankingService.sortTasks(filteredTasks);
+        
+        // Paging
+        int start = (pageRequest.page() - 1) * pageRequest.size();
+        int end = Math.min(start + pageRequest.size(), sortedTasks.size());
+        List<Task> pagedTasks = sortedTasks.subList(start, end);
+        
+        return new PageResult<>(
+                sortedTasks.size(),
+                (int) Math.ceil((double) sortedTasks.size() / pageRequest.size()),
+                pageRequest.page(),
+                pageRequest.size(),
+                pagedTasks.stream().map(this::toResponse).toList()
+        );
     }
 
     public TaskResponse getTask(String username, Long taskId) {
@@ -106,7 +184,7 @@ public class TaskService {
                 records);
     }
 
-    public List<TaskResponse> getFilteredTasks(String username, TaskStatus status, TaskPriority priority) {
+    public List<TaskResponse> getFilteredTasks(String username, TaskStatus status, TaskPriority priority, SortBy sortBy) {
         User currentUser = userService.findByUsernameOrThrow(username);
         List<Task> result;
 
@@ -123,7 +201,9 @@ public class TaskService {
                     priority);
         }
 
-        return result.stream().map(this::toResponse).toList();
+        List<Task> sortedResult = applySorting(result, sortBy);
+
+        return sortedResult.stream().map(this::toResponse).toList();
     }
 
     private Task findTaskOrThrow(Long ownerId, Long taskId) {
@@ -207,7 +287,7 @@ public class TaskService {
             default: // updatedAt
                 return tasks.stream()
                         .sorted(Comparator.comparing(Task::getUpdatedAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
+                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                         .toList();
         }
     }

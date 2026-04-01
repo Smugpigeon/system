@@ -2,8 +2,9 @@ package com.lab.taskmanager.task.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.taskmanager.common.exception.GlobalExceptionHandler;
+import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
-import com.lab.taskmanager.task.entity.SortBy;
+import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
@@ -42,14 +43,29 @@ class TaskControllerTest {
 
     @Test
     void listTasksShouldReturnCurrentUsersTasks() throws Exception {
-        when(taskService.listTasks("alice", SortBy.UPDATED_AT)).thenReturn(List.of(buildResponse(1L, "write report")));
+        PageRequest pageRequest = PageRequest.of((Integer) 10, (Integer) 1, "updatedAt");
+        List<TaskResponse> tasks = List.of(buildResponse(1L, "write report"));
+        PageResult<TaskResponse> pageResult = new PageResult<>(
+                1,      // totalRecords
+                1,      // totalPages
+                1,      // currPage
+                10,     // size
+                tasks   // records
+        );
+        when(taskService.listTasks("alice", null, null, pageRequest)).thenReturn(pageResult);
 
-        mockMvc.perform(get("/api/tasks").principal(() -> "alice"))
+        mockMvc.perform(get("/api/tasks").principal(() -> "alice")
+                .param("page", "1")
+                .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("任务列表获取成功"))
-                .andExpect(jsonPath("$.data[0].id").value(1))
-                .andExpect(jsonPath("$.data[0].title").value("write report"));
+                .andExpect(jsonPath("$.data.records[0].id").value(1))
+                .andExpect(jsonPath("$.data.records[0].title").value("write report"))
+                .andExpect(jsonPath("$.data.totalRecords").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.currPage").value(1))
+                .andExpect(jsonPath("$.data.size").value(10));
     }
 
     @Test
