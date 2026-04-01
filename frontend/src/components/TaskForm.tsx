@@ -30,7 +30,12 @@ export function TaskForm({
   useEffect(() => {
     setFormValues(initialValues)
   }, [initialValues])
-
+  useEffect(() => {
+    if (mode === 'create') {
+      setFormValues(emptyTaskFormValues)
+    }
+  }, [mode])
+  
   const isCreateMode = mode === 'create'
 
   const handleChange = (

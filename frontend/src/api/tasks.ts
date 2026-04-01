@@ -1,10 +1,20 @@
 import { http } from './http'
-import type { ApiResponse } from '../types/api'
+import type { ApiResponse, PageResponse } from '../types/api'
 import type { Task, TaskPayload } from '../types/task'
 
-export async function fetchTasks() {
-  const response = await http.get<ApiResponse<Task[]>>('/tasks')
-  return response.data.data
+export type TaskQueryParams = {
+  page?: number      
+  size?: number      
+  status?: string    
+  priority?: string  
+  sortBy?: string    
+}
+
+export async function fetchTasks(params?: TaskQueryParams) {
+  const response = await http.get<ApiResponse<PageResponse<Task>>>('/tasks', {
+    params
+  })
+  return response.data.data  // 返回 PageResponse<Task>
 }
 
 export async function createTask(payload: TaskPayload) {
