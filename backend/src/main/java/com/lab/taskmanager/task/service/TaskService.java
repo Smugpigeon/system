@@ -7,6 +7,7 @@ import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
 import com.lab.taskmanager.task.entity.PageResult;
+import com.lab.taskmanager.task.entity.SortBy;
 import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
@@ -26,7 +27,7 @@ public class TaskService {
     private final UserService userService;
     private final TaskRankingService taskRankingService;
 
-    public List<TaskResponse> listTasks(String username, String sortBy) {
+    public List<TaskResponse> listTasks(String username, SortBy sortBy) {
         User currentUser = userService.findByUsernameOrThrow(username);
         List<Task> tasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
 
@@ -82,7 +83,7 @@ public class TaskService {
         User currentUser = userService.findByUsernameOrThrow(username);
         int pageNumber = Math.max(0, pageRequest.page() - 1);
         int pageSize = pageRequest.size();
-        String sortBy = pageRequest.sortBy();
+        SortBy sortBy = pageRequest.sortBy();
 
         List<Task> allTasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
         List<Task> sortedTasks = applySorting(allTasks, sortBy);
@@ -169,31 +170,35 @@ public class TaskService {
      *               - updatedAt: descending by update time (default, newest first)
      * @return the sorted list of tasks
      */
-    private List<Task> applySorting(List<Task> tasks, String sortBy) {
+    private List<Task> applySorting(List<Task> tasks, SortBy sortBy) {
 
-        switch (sortBy.toLowerCase()) {
-            case "rank":
+        if (tasks == null || tasks.isEmpty()) {
+            return tasks;
+        }
+    
+        switch (sortBy) {
+            case RANK:
                 return taskRankingService.sortTasks(tasks);
             
-            case "dueat":
+            case DUE_AT:
                 return tasks.stream()
                         .sorted(Comparator.comparing(Task::getDueAt,
                                 Comparator.nullsLast(Comparator.naturalOrder())))
                         .toList();
 
-            case "createdat":
+            case CREATED_AT:
                 return tasks.stream()
                         .sorted(Comparator.comparing(Task::getCreatedAt,
                                 Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                         .toList();
 
-            case "priority":
+            case PRIORITY:
                 return tasks.stream()
                         .sorted(Comparator.comparing(Task::getPriority,
                                 Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                         .toList();
 
-            case "status":
+            case STATUS:
                 return tasks.stream()
                         .sorted(Comparator.comparing(Task::getStatus,
                                 Comparator.nullsLast(Comparator.naturalOrder())))

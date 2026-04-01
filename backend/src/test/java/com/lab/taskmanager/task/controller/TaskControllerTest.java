@@ -3,6 +3,7 @@ package com.lab.taskmanager.task.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.taskmanager.common.exception.GlobalExceptionHandler;
 import com.lab.taskmanager.task.dto.TaskResponse;
+import com.lab.taskmanager.task.entity.SortBy;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
@@ -41,7 +42,7 @@ class TaskControllerTest {
 
     @Test
     void listTasksShouldReturnCurrentUsersTasks() throws Exception {
-        when(taskService.listTasks("alice", "updatedBy")).thenReturn(List.of(buildResponse(1L, "write report")));
+        when(taskService.listTasks("alice", SortBy.UPDATED_AT)).thenReturn(List.of(buildResponse(1L, "write report")));
 
         mockMvc.perform(get("/api/tasks").principal(() -> "alice"))
                 .andExpect(status().isOk())
