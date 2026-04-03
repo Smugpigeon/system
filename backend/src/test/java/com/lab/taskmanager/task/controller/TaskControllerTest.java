@@ -1,6 +1,8 @@
 package com.lab.taskmanager.task.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lab.taskmanager.auth.security.CustomUserDetailsService;
+import com.lab.taskmanager.auth.security.JwtService;
 import com.lab.taskmanager.common.exception.GlobalExceptionHandler;
 import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
@@ -12,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -29,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TaskController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
 class TaskControllerTest {
 
@@ -40,6 +44,12 @@ class TaskControllerTest {
 
     @MockitoBean
     private TaskService taskService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private CustomUserDetailsService customUserDetailsService;
 
     @Test
     void listTasksShouldReturnCurrentUsersTasks() throws Exception {

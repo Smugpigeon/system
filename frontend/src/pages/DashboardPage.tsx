@@ -81,8 +81,7 @@ export function DashboardPage() {
             return
           }
           const stillExists = filteredRecords.some(t => t.id === selectedTaskId)
-          if (stillExists && selectedTaskId) {
-          } else {
+          if (!stillExists || selectedTaskId === null) {
             setSelectedTaskId(filteredRecords[0].id)
             setFormMode('edit')
           }
@@ -94,7 +93,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, filters.status, filters.priority, filters.keyword, pageSize, selectedTaskId])
+  }, [currentPage, filters.status, filters.priority, filters.keyword, pageSize, selectedTaskId, formMode])
 
   useEffect(() => {
     loadTasks()

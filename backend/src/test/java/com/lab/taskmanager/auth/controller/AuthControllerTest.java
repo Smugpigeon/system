@@ -2,10 +2,13 @@ package com.lab.taskmanager.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.taskmanager.auth.dto.AuthResponse;
+import com.lab.taskmanager.auth.security.CustomUserDetailsService;
+import com.lab.taskmanager.auth.security.JwtService;
 import com.lab.taskmanager.auth.service.AuthService;
 import com.lab.taskmanager.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -19,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @Import(GlobalExceptionHandler.class)
 class AuthControllerTest {
 
@@ -30,6 +34,12 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private CustomUserDetailsService customUserDetailsService;
 
     @Test
     void registerShouldReturnCreated() throws Exception {
