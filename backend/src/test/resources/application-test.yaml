@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:task-manager-test;MODE=MYSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    show-sql: false
+
+app:
+  jwt:
+    secret: VGFza01hbmFnZXJMYWIxVG9rZW5TZWNyZXRLZXlGb3JDb3Vyc2VQcm9qZWN0MjAyNg==
+    expiration-minutes: 720

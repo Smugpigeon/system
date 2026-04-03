@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: task-manager-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/task-manager;MODE=MYSQL;AUTO_SERVER=TRUE}
+    driver-class-name: org.h2.Driver
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# springdoc-openapi项目配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'auth'
+      paths-to-match: '/**'
+      packages-to-scan: com.lab.taskmanager.auth.controller
+    - group: 'task'
+      paths-to-match: '/**'
+      packages-to-scan: com.lab.taskmanager.task.controller
+
+# knife4j的增强配置
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+# JWT 配置
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:VGFza01hbmFnZXJMYWIxVG9rZW5TZWNyZXRLZXlGb3JDb3Vyc2VQcm9qZWN0MjAyNg==}
+    expiration-minutes: ${APP_JWT_EXPIRATION_MINUTES:720}
