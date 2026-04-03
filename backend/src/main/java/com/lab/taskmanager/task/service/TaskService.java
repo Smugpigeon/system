@@ -103,13 +103,26 @@ public class TaskService {
         List<Task> sortedTasks = taskRankingService.sortTasks(filteredTasks);
         
         // Paging
+        int totalRecords = sortedTasks.size();
+        int totalPages = totalRecords == 0
+                ? 0
+                : (int) Math.ceil((double) totalRecords / pageRequest.size());
         int start = (pageRequest.page() - 1) * pageRequest.size();
-        int end = Math.min(start + pageRequest.size(), sortedTasks.size());
+        if (start >= totalRecords) {
+            return new PageResult<>(
+                    totalRecords,
+                    totalPages,
+                    pageRequest.page(),
+                    pageRequest.size(),
+                    java.util.Collections.emptyList()
+            );
+        }
+        int end = Math.min(start + pageRequest.size(), totalRecords);
         List<Task> pagedTasks = sortedTasks.subList(start, end);
         
         return new PageResult<>(
-                sortedTasks.size(),
-                (int) Math.ceil((double) sortedTasks.size() / pageRequest.size()),
+                totalRecords,
+                totalPages,
                 pageRequest.page(),
                 pageRequest.size(),
                 pagedTasks.stream().map(this::toResponse).toList()
