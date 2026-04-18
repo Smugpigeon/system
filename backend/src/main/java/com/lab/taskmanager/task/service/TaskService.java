@@ -12,6 +12,7 @@ import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.repository.TaskRepository;
+import com.lab.taskmanager.task.repository.TaskSpecifications;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
 import java.util.List;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,11 +33,15 @@ public class TaskService {
     private final UserService userService;
     private final TaskRankingService taskRankingService;
 
-    public PageResult<TaskResponse> listTasks(String username, TaskStatus status, TaskPriority priority, PageRequest pageRequest) {
+    public PageResult<TaskResponse> listTasks(String username,
+                                             TaskStatus status,
+                                             TaskPriority priority,
+                                             String keyword,
+                                             PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
 
         if (pageRequest.sortBy() == SortBy.RANK) {
-            return listTasksWithRankSorting(currentUser, status, priority, pageRequest);
+            return listTasksWithRankSorting(currentUser, status, priority,keyword, pageRequest);
         }
 
         // Establish Sorting
@@ -53,20 +59,10 @@ public class TaskService {
         );
 
         // Handles filtering, sorting, and pagination in database layer
-        Page<Task> taskPage;
-        if (status != null && priority != null) {
-            taskPage = taskRepository.findByOwnerIdAndStatusAndPriority(
-                    currentUser.getId(), status, priority, pageable);
-        } else if (status != null) {
-            taskPage = taskRepository.findByOwnerIdAndStatus(
-                    currentUser.getId(), status, pageable);
-        } else if (priority != null) {
-            taskPage = taskRepository.findByOwnerIdAndPriority(
-                    currentUser.getId(), priority, pageable);
-        } else {
-            taskPage = taskRepository.findAllByOwnerId(
-                    currentUser.getId(), pageable);
-        }
+        Specification<Task> spec = TaskSpecifications.buildSpecification(
+            currentUser.getId(), status, priority, keyword);
+    
+        Page<Task> taskPage = taskRepository.findAll(spec, pageable);
 
         List<TaskResponse> records = taskPage.getContent()
             .stream()
@@ -81,23 +77,17 @@ public class TaskService {
             records);
     }
 
-    private PageResult<TaskResponse> listTasksWithRankSorting(User currentUser, TaskStatus status, TaskPriority priority, PageRequest pageRequest) {
+    private PageResult<TaskResponse> listTasksWithRankSorting(User currentUser,
+                                                                TaskStatus status,
+                                                                TaskPriority priority,
+                                                                String keyword,
+                                                                PageRequest pageRequest) {
         
         // Filtering
-        List<Task> filteredTasks;
-
-        if (status == null && priority == null) {
-            filteredTasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
-        } else if (status != null && priority == null) {
-            filteredTasks = taskRepository.findByOwnerIdAndStatusOrderByUpdatedAtDesc(currentUser.getId(), status);
-        } else if (priority != null && status == null) {
-            filteredTasks = taskRepository.findByOwnerIdAndPriorityOrderByUpdatedAtDesc(currentUser.getId(), priority);
-        } else {
-            filteredTasks = taskRepository.findByOwnerIdAndStatusAndPriorityOrderByUpdatedAtDesc(
-                    currentUser.getId(),
-                    status,
-                    priority);
-        }
+        Specification<Task> spec = TaskSpecifications.buildSpecification(
+            currentUser.getId(), status, priority, keyword);
+    
+        List<Task> filteredTasks = taskRepository.findAll(spec);
         
         // Sorting
         List<Task> sortedTasks = taskRankingService.sortTasks(filteredTasks);
