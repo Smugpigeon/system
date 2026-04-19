@@ -13,6 +13,8 @@ import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.task.repository.TaskSpecifications;
+import com.lab.taskmanager.team.entity.TeamRole;
+import com.lab.taskmanager.team.service.TeamAuthorizationService;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
 import java.util.List;
@@ -32,6 +34,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final UserService userService;
     private final TaskRankingService taskRankingService;
+    private final TeamAuthorizationService teamAuthorizationService;
 
     public PageResult<TaskResponse> listTasks(String username,
                                              TaskStatus status,
@@ -229,15 +232,21 @@ public class TaskService {
     }
 
     private TaskResponse toResponse(Task task) {
-        return new TaskResponse(
-                task.getId(),
-                task.getTitle(),
-                task.getDescription(),
-                task.getStatus(),
-                task.getPriority(),
-                task.getDueAt(),
-                task.getCreatedAt(),
-                task.getUpdatedAt());
+        if (task.getTeam() == null) {
+            return TaskResponse.fromPersonalTask(task);
+        }
+        TeamRole assigneeRole = null;
+        if (task.getAssignee() != null) {
+            try {
+                assigneeRole = teamAuthorizationService
+                    .requireMembership(task.getTeam().getId(), task.getAssignee().getId())
+                    .getRole();
+            } catch (ResourceNotFoundException e) {
+                // Assignee is not a member of the team, ignore
+                assigneeRole = null;
+            }
+        }
+        return TaskResponse.fromTeamTask(task, assigneeRole);
     }
 
     /**
