@@ -36,6 +36,8 @@ public class TaskService {
     private final TaskRankingService taskRankingService;
     private final TeamAuthorizationService teamAuthorizationService;
 
+    // Get private tasks of the current user with sorting and pagination
+    // Needs to be updated to return assigned tasks as well
     public PageResult<TaskResponse> listTasks(String username,
                                              TaskStatus status,
                                              TaskPriority priority,
@@ -163,55 +165,6 @@ public class TaskService {
         taskRepository.delete(task);
     }
 
-    public PageResult<TaskResponse> page(PageRequest pageRequest, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        int pageNumber = Math.max(0, pageRequest.page() - 1);
-        int pageSize = pageRequest.size();
-        SortBy sortBy = pageRequest.sortBy();
-
-        List<Task> allTasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
-        List<Task> sortedTasks = applySorting(allTasks, sortBy);
-        
-        int start = pageNumber * pageSize;
-        int end = Math.min(start + pageSize, sortedTasks.size());
-        List<Task> pagedTasks = start < sortedTasks.size() ? 
-                                    sortedTasks.subList(start, end) : 
-                                    java.util.Collections.emptyList();
-        
-        List<TaskResponse> records = pagedTasks.stream()
-                .map(this::toResponse)
-                .toList();
-        
-        return new PageResult<>(
-                sortedTasks.size(),
-                (int) Math.ceil((double) sortedTasks.size() / pageSize),
-                pageRequest.page(),
-                pageSize,
-                records);
-    }
-
-    public List<TaskResponse> getFilteredTasks(String username, TaskStatus status, TaskPriority priority, SortBy sortBy) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        List<Task> result;
-
-        if (status == null && priority == null) {
-            result = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
-        } else if (status != null && priority == null) {
-            result = taskRepository.findByOwnerIdAndStatusOrderByUpdatedAtDesc(currentUser.getId(), status);
-        } else if (priority != null && status == null) {
-            result = taskRepository.findByOwnerIdAndPriorityOrderByUpdatedAtDesc(currentUser.getId(), priority);
-        } else {
-            result = taskRepository.findByOwnerIdAndStatusAndPriorityOrderByUpdatedAtDesc(
-                    currentUser.getId(),
-                    status,
-                    priority);
-        }
-
-        List<Task> sortedResult = applySorting(result, sortBy);
-
-        return sortedResult.stream().map(this::toResponse).toList();
-    }
-
     private Task findTaskOrThrow(Long ownerId, Long taskId) {
         return taskRepository.findByIdAndOwnerId(taskId, ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("任务不存在，或你无权访问该任务"));
@@ -247,60 +200,5 @@ public class TaskService {
             }
         }
         return TaskResponse.fromTeamTask(task, assigneeRole);
-    }
-
-    /**
-     * Sorts the given task list based on the specified sorting criteria.
-     * 
-     * @param tasks the list of tasks to be sorted
-     * @param sortBy the sorting criteria, supports:
-     *               - rank: intelligent sorting based on priority, status, and due date
-     *               - dueAt: ascending by due date (most urgent first, null values last)
-     *               - createdAt: descending by creation date (newest first)
-     *               - priority: descending by priority (HIGH > MEDIUM > LOW)
-     *               - status: ascending by status
-     *               - updatedAt: descending by update time (default, newest first)
-     * @return the sorted list of tasks
-     */
-    private List<Task> applySorting(List<Task> tasks, SortBy sortBy) {
-
-        if (tasks == null || tasks.isEmpty()) {
-            return tasks;
-        }
-    
-        switch (sortBy) {
-            case RANK:
-                return taskRankingService.sortTasks(tasks);
-            
-            case DUE_AT:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getDueAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
-                        .toList();
-
-            case CREATED_AT:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getCreatedAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                        .toList();
-
-            case PRIORITY:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getPriority,
-                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                        .toList();
-
-            case STATUS:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getStatus,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
-                        .toList();
-
-            default: // updatedAt
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getUpdatedAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                        .toList();
-        }
     }
 }
