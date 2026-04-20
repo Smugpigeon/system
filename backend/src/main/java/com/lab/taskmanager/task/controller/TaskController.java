@@ -37,7 +37,7 @@ public class TaskController {
     private final TaskService taskService;
 
     @GetMapping
-    @Operation(summary = "获取任务列表", description = "获取当前用户的所有个人任务与被分配任务，支持按智能排序")
+    @Operation(summary = "获取任务列表", description = "获取当前用户的所有个人任务（个人创建且不属于任何团队的任务）与被分配任务，支持按智能排序")
     public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> listTasks(
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer size,

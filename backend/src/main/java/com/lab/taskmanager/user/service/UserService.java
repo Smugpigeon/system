@@ -22,4 +22,16 @@ public class UserService {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("当前用户不存在"));
     }
+
+    /**
+     * Load the current user entity by userId for downstream task ownership checks.
+     *
+     * @param username username from the authenticated principal
+     * @return resolved user entity
+     */
+    public User findByIdOrThrow(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("当前用户不存在"));
+    }
+
 }

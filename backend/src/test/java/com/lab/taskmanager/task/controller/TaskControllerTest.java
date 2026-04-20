@@ -133,7 +133,9 @@ class TaskControllerTest {
                 TaskPriority.HIGH,
                 now.plusDays(1),
                 now.minusDays(1),
-                now);
+                now,
+                null, null, null, null,
+                null, null, null);
     }
 
     private record TaskCreateRequestBody(
