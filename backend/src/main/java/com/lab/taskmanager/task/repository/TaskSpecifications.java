@@ -50,7 +50,7 @@ public class TaskSpecifications {
     }
     
     // Compose specifications for personal tasks list(contains both personal tasks and assigned tasks)
-    public static Specification<Task> buildPersonalTasks(Long ownerId,
+    public static Specification<Task> buildDashboardTasks(Long ownerId,
                                                           TaskStatus status,
                                                           TaskPriority priority,
                                                           String keyword) {

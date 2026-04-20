@@ -25,6 +25,8 @@ import com.lab.taskmanager.team.repository.TeamRepository;
 import com.lab.taskmanager.team.service.TeamAuthorizationService;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
+
+import jakarta.annotation.Nullable;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -47,16 +49,20 @@ public class TaskService {
 
     // Get personal tasks (including both personal tasks and assigned tasks) of the current user with sorting and pagination
     @Transactional
-    public PageResult<TaskResponse> listTasks(String username,
+    public PageResult<TaskResponse> getDashboardTasks(String username,
                                              TaskStatus status,
                                              TaskPriority priority,
                                              String keyword,
                                              PageRequest pageRequest) {
-        User currentUser = userService.findByUsernameOrThrow(username);
+        Long currentUserId = userService.findByUsernameOrThrow(username).getId();
 
         if (pageRequest.sortBy() == SortBy.RANK) {
-            return getPersonalTasksWithRankSorting(currentUser, status, priority,keyword, pageRequest);
+            return getTasksWithRankSorting(currentUserId, null, status, priority,keyword, pageRequest);
         }
+
+        // Handles filtering, sorting, and pagination in database layer
+        Specification<Task> spec = TaskSpecifications.buildDashboardTasks(
+            currentUserId, status, priority, keyword);
 
         // Establish Sorting
         Sort.Direction direction = Sort.Direction.DESC;
@@ -71,10 +77,6 @@ public class TaskService {
             pageRequest.size(),
             Sort.by(direction, sortField)
         );
-
-        // Handles filtering, sorting, and pagination in database layer
-        Specification<Task> spec = TaskSpecifications.buildPersonalTasks(
-            currentUser.getId(), status, priority, keyword);
     
         Page<Task> taskPage = taskRepository.findAll(spec, pageable);
 
@@ -89,48 +91,6 @@ public class TaskService {
             pageRequest.page(),
             pageRequest.size(),
             records);
-    }
-
-    private PageResult<TaskResponse> getPersonalTasksWithRankSorting(User currentUser,
-                                                                TaskStatus status,
-                                                                TaskPriority priority,
-                                                                String keyword,
-                                                                PageRequest pageRequest) {
-        
-        // Filtering
-        Specification<Task> spec = TaskSpecifications.buildPersonalTasks(
-            currentUser.getId(), status, priority, keyword);
-    
-        List<Task> filteredTasks = taskRepository.findAll(spec);
-        
-        // Sorting
-        List<Task> sortedTasks = taskRankingService.sortTasks(filteredTasks);
-        
-        // Paging
-        int totalRecords = sortedTasks.size();
-        int totalPages = totalRecords == 0
-                ? 0
-                : (int) Math.ceil((double) totalRecords / pageRequest.size());
-        int start = (pageRequest.page() - 1) * pageRequest.size();
-        if (start >= totalRecords) {
-            return new PageResult<>(
-                    totalRecords,
-                    totalPages,
-                    pageRequest.page(),
-                    pageRequest.size(),
-                    java.util.Collections.emptyList()
-            );
-        }
-        int end = Math.min(start + pageRequest.size(), totalRecords);
-        List<Task> pagedTasks = sortedTasks.subList(start, end);
-        
-        return new PageResult<>(
-                totalRecords,
-                totalPages,
-                pageRequest.page(),
-                pageRequest.size(),
-                pagedTasks.stream().map(this::toResponse).toList()
-        );
     }
 
     // Get team tasks of the current teamwith sorting and pagination
@@ -150,7 +110,7 @@ public class TaskService {
             teamId, status, priority, keyword);
         
         if (pageRequest.sortBy() == SortBy.RANK) {
-            return getTeamTasksWithRankSorting(teamId, status, priority,keyword, pageRequest);
+            return getTasksWithRankSorting(null, teamId, status, priority,keyword, pageRequest);
         }
 
         // Establish Sorting
@@ -182,15 +142,24 @@ public class TaskService {
             records);
     }
 
-    private PageResult<TaskResponse> getTeamTasksWithRankSorting(Long teamId,
+    private PageResult<TaskResponse> getTasksWithRankSorting(   @Nullable Long currentUserId,
+                                                                @Nullable Long teamId,
                                                                 TaskStatus status,
                                                                 TaskPriority priority,
                                                                 String keyword,
                                                                 PageRequest pageRequest) {
         
         // Filtering
-        Specification<Task> spec = TaskSpecifications.buildTeamTasks(
-            teamId, status, priority, keyword);
+        Specification<Task> spec = null;
+        if (currentUserId != null) {
+            spec = TaskSpecifications.buildDashboardTasks(
+                currentUserId, status, priority, keyword);
+        } else if (teamId != null) {
+            spec = TaskSpecifications.buildTeamTasks(
+                teamId, status, priority, keyword);
+        } else {
+            throw new IllegalArgumentException("currentUserId and teamId cannot both be null");
+        }
     
         List<Task> filteredTasks = taskRepository.findAll(spec);
         
@@ -245,7 +214,7 @@ public class TaskService {
     // ====== Create Task ======
     // Create personal task
     @Transactional
-    public TaskResponse createTask(String username, TaskCreateRequest request) {
+    public TaskResponse createPersonalTask(String username, TaskCreateRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
 
         Task task = new Task();

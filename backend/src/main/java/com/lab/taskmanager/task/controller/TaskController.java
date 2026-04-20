@@ -41,8 +41,8 @@ public class TaskController {
     // ============== Personal Tasks ==============
     // Get personal task list
     @GetMapping
-    @Operation(summary = "获取任务列表", description = "获取当前用户的所有个人任务（个人创建且不属于任何团队的任务）与被分配任务，支持按智能排序")
-    public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> listTasks(
+    @Operation(summary = "获取个人面板任务列表", description = "获取当前用户的所有个人任务（个人创建且不属于任何团队的任务）与被分配任务，支持按智能排序")
+    public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> getDashboardTasks(
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer size,
             @RequestParam(required = false) TaskStatus status,
@@ -56,17 +56,17 @@ public class TaskController {
                    })) String sortBy,
             Principal principal) {
         PageRequest pageRequest = PageRequest.of(size, page, sortBy);
-        PageResult<TaskResponse> tasks = taskService.listTasks(principal.getName(), status, priority, keyword, pageRequest);
+        PageResult<TaskResponse> tasks = taskService.getDashboardTasks(principal.getName(), status, priority, keyword, pageRequest);
         return ResponseEntity.ok(ApiResponse.success("任务列表获取成功", tasks));
     }
 
     // Create personal task
     @PostMapping
-    @Operation(summary = "创建任务", description = "为当前用户创建一个新任务")
-    public ResponseEntity<ApiResponse<TaskResponse>> createTask(
+    @Operation(summary = "创建个人任务", description = "为当前用户创建一个新任务")
+    public ResponseEntity<ApiResponse<TaskResponse>> createPersonalTask(
             @Valid @RequestBody TaskCreateRequest request,
             Principal principal) {
-        TaskResponse response = taskService.createTask(principal.getName(), request);
+        TaskResponse response = taskService.createPersonalTask(principal.getName(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("任务创建成功", response));
     }
@@ -109,7 +109,7 @@ public class TaskController {
 
     // Assign team task
     @PutMapping("/{taskId}/assign")
-    @Operation(summary = "分配任务", description = "将团队任务分配给团队成员（需要 Admin 或 Owner 权限）")
+    @Operation(summary = "分配团队任务", description = "将团队任务分配给团队成员（需要 Admin 或 Owner 权限）")
     public ResponseEntity<ApiResponse<TaskResponse>> assignTask(
             @PathVariable Long taskId,
             @Valid @RequestBody TaskAssignRequest request,
