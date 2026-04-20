@@ -344,7 +344,7 @@ public class TaskService {
             }
             // Else continue: Admin or Owner role / Member role but only modify status of the task assigned to him
         } else {
-            // Private task
+            // Personal task
             if (!task.getOwner().getId().equals(currentUser.getId())) {
                 throw new ForbiddenOperationException("无权修改该任务");
             }
@@ -371,7 +371,7 @@ public class TaskService {
     }
 
     // ====== Delete Task ======
-    // Delete private task
+    // Delete task
     @Transactional
     public void deleteTask(String username, Long taskId) {
         User currentUser = userService.findByUsernameOrThrow(username);
