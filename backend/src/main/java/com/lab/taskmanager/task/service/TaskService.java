@@ -232,11 +232,11 @@ public class TaskService {
 
     // Create team task(needs Admin or Owner role in the team)
     @Transactional
-    public TaskResponse createTeamTask(String username, TeamTaskCreateRequest request) {
+    public TaskResponse createTeamTask(String username, Long teamId, TeamTaskCreateRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
 
         // Check if the current user is an admin or owner of the team
-        Team team = teamRepository.findById(request.teamId())
+        Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("团队不存在"));
         teamAuthorizationService.requireAdminOrOwner(team.getId(), currentUser.getId());
 
@@ -269,15 +269,15 @@ public class TaskService {
     // ====== Update Task ======
     // Assign team task to a user(needs Admin or Owner role in the team)
     @Transactional
-    public TaskResponse assignTask(String username, Long taskId, TaskAssignRequest request) {
+    public TaskResponse assignTask(String username, Long teamId, Long taskId, TaskAssignRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
+
+        teamAuthorizationService.requireAdminOrOwner(teamId, currentUser.getId());
         
         Task task = findTaskOrThrow(taskId);
-        if (task.getTeam() == null) {
-            throw new BusinessException("个人任务不能分配给其他人");
+        if (task.getTeam() == null || !task.getTeam().getId().equals(teamId)) {
+            throw new BusinessException("任务不属于该团队");
         }
-        
-        teamAuthorizationService.requireAdminOrOwner(task.getTeam().getId(), currentUser.getId());
         
         User assignee = userService.findByIdOrThrow(request.assigneeId());
         if (!teamMembershipRepository.existsByTeamIdAndUserId(task.getTeam().getId(), assignee.getId())) {

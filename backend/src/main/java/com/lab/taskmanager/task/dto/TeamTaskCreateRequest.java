@@ -3,7 +3,6 @@ package com.lab.taskmanager.task.dto;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
@@ -16,7 +15,5 @@ public record TeamTaskCreateRequest(
         TaskStatus status,
         TaskPriority priority,
         LocalDateTime dueAt,
-        @NotNull(message = "团队ID不能为空")
-        Long teamId,
         Long assigneeId) {
 }
