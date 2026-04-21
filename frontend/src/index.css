@@ -291,6 +291,17 @@ button {
   display: grid;
   grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.15fr);
   gap: 1rem;
+  align-items: start;
+}
+
+.content-grid .panel:last-child {
+  height: auto;
+  align-self: start;
+}
+
+.content-grid .panel:first-child {
+  max-height: 1000px;  
+  overflow-y: auto;
 }
 
 .panel {
