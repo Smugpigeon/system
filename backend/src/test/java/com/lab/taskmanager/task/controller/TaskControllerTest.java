@@ -62,7 +62,7 @@ class TaskControllerTest {
                 10,     // size
                 tasks   // records
         );
-        when(taskService.listTasks("alice", null, null, "", pageRequest)).thenReturn(pageResult);
+        when(taskService.getDashboardTasks("alice", null, null, "", pageRequest)).thenReturn(pageResult);
 
         mockMvc.perform(get("/api/tasks").principal(() -> "alice")
                 .param("page", "1")
@@ -80,7 +80,7 @@ class TaskControllerTest {
 
     @Test
     void createTaskShouldReturnCreated() throws Exception {
-        when(taskService.createTask(eq("alice"), any())).thenReturn(buildResponse(2L, "finish lab"));
+        when(taskService.createPersonalTask(eq("alice"), any())).thenReturn(buildResponse(2L, "finish lab"));
 
         String requestBody = objectMapper.writeValueAsString(
                 new TaskCreateRequestBody("finish lab", "backend part", "TODO", "HIGH"));
@@ -133,7 +133,9 @@ class TaskControllerTest {
                 TaskPriority.HIGH,
                 now.plusDays(1),
                 now.minusDays(1),
-                now);
+                now,
+                null, null, null, null,
+                null, null, null);
     }
 
     private record TaskCreateRequestBody(

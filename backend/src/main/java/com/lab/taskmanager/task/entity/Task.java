@@ -1,6 +1,7 @@
 package com.lab.taskmanager.task.entity;
 
 import com.lab.taskmanager.common.model.AuditableEntity;
+import com.lab.taskmanager.team.entity.Team;
 import com.lab.taskmanager.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -48,4 +49,12 @@ public class Task extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "team_id")
+    private Team team;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
 }

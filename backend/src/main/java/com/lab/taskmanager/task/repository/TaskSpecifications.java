@@ -8,8 +8,25 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class TaskSpecifications {
     
-    public static Specification<Task> ownerIdEquals(Long ownerId) {
-        return (root, query, cb) -> cb.equal(root.get("owner").get("id"), ownerId);
+    // Personal tasks Condtions: ownerId = userId and teamId is null
+    public static Specification<Task> personalTask(Long userId) {
+        return (root, query, cb) -> cb.and(
+            cb.equal(root.get("owner").get("id"), userId),
+            cb.isNull(root.get("team"))
+        );
+    }
+
+    // Assigned tasks Condtions: assigneeId = userId and teamId is not null
+    public static Specification<Task> assignedTeamTask(Long userId) {
+        return (root, query, cb) -> cb.and(
+            cb.equal(root.get("assignee").get("id"), userId),
+            cb.isNotNull(root.get("team"))
+        );
+    }
+
+    // Team tasks Condtions: task.teamId = teamId
+    public static Specification<Task> teamTask(Long teamId) {
+        return (root, query, cb) -> cb.equal(root.get("team").get("id"), teamId);
     }
     
     public static Specification<Task> statusEquals(TaskStatus status) {
@@ -32,28 +49,45 @@ public class TaskSpecifications {
         };
     }
     
-    // Compose specifications
-    public static Specification<Task> buildSpecification(Long ownerId,
+    // Compose specifications for personal tasks list(contains both personal tasks and assigned tasks)
+    public static Specification<Task> buildDashboardTasks(Long ownerId,
                                                           TaskStatus status,
                                                           TaskPriority priority,
                                                           String keyword) {
-        Specification<Task> spec = Specification.unrestricted();
+        Specification<Task> spec = personalTask(ownerId).or(assignedTeamTask(ownerId));
         
-        spec = spec.and(ownerIdEquals(ownerId));
-        
-        Specification<Task> statusSpec = statusEquals(status);
-        if (statusSpec != null) {
-            spec = spec.and(statusSpec);
+        if (status != null) {
+            spec = spec.and(statusEquals(status));
         }
         
-        Specification<Task> prioritySpec = priorityEquals(priority);
-        if (prioritySpec != null) {
-            spec = spec.and(prioritySpec);
+        if (priority != null) {
+            spec = spec.and(priorityEquals(priority));
         }
         
-        Specification<Task> keywordSpec = keywordContains(keyword);
-        if (keywordSpec != null) {
-            spec = spec.and(keywordSpec);
+        if (keyword != null && !keyword.isBlank()) {
+            spec = spec.and(keywordContains(keyword));
+        }
+        
+        return spec;
+    }
+
+    // Compose specifications for team tasks list(contains only task.team.id = team.id)
+    public static Specification<Task> buildTeamTasks(Long teamId,
+                                                          TaskStatus status,
+                                                          TaskPriority priority,
+                                                          String keyword) {
+        Specification<Task> spec = teamTask(teamId);
+        
+        if (status != null) {
+            spec = spec.and(statusEquals(status));
+        }
+        
+        if (priority != null) {
+            spec = spec.and(priorityEquals(priority));
+        }
+        
+        if (keyword != null && !keyword.isBlank()) {
+            spec = spec.and(keywordContains(keyword));
         }
         
         return spec;

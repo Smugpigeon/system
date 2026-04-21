@@ -37,6 +37,9 @@ springdoc:
     - group: 'task'
       paths-to-match: '/**'
       packages-to-scan: com.lab.taskmanager.task.controller
+    - group: 'team'
+      paths-to-match: '/**'
+      packages-to-scan: com.lab.taskmanager.team.controller
 
 # knife4j的增强配置
 knife4j:

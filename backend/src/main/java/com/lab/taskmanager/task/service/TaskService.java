@@ -1,11 +1,15 @@
 package com.lab.taskmanager.task.service;
 
+import com.lab.taskmanager.common.exception.BusinessException;
+import com.lab.taskmanager.common.exception.ForbiddenOperationException;
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
 import com.lab.taskmanager.task.algorithm.TaskRankingService;
 import com.lab.taskmanager.task.dto.PageRequest;
+import com.lab.taskmanager.task.dto.TaskAssignRequest;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
+import com.lab.taskmanager.task.dto.TeamTaskCreateRequest;
 import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.SortBy;
 import com.lab.taskmanager.task.entity.Task;
@@ -13,12 +17,19 @@ import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.task.repository.TaskSpecifications;
+import com.lab.taskmanager.team.entity.TeamRole;
+import com.lab.taskmanager.team.entity.Team;
+import com.lab.taskmanager.team.entity.TeamMembership;
+import com.lab.taskmanager.team.repository.TeamMembershipRepository;
+import com.lab.taskmanager.team.repository.TeamRepository;
+import com.lab.taskmanager.team.service.TeamAuthorizationService;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
-import java.util.List;
-import java.util.Comparator;
-import lombok.RequiredArgsConstructor;
 
+import jakarta.annotation.Nullable;
+import jakarta.transaction.Transactional;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -32,17 +43,26 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final UserService userService;
     private final TaskRankingService taskRankingService;
+    private final TeamAuthorizationService teamAuthorizationService;
+    private final TeamRepository teamRepository;
+    private final TeamMembershipRepository teamMembershipRepository;
 
-    public PageResult<TaskResponse> listTasks(String username,
+    // Get personal tasks (including both personal tasks and assigned tasks) of the current user with sorting and pagination
+    @Transactional
+    public PageResult<TaskResponse> getDashboardTasks(String username,
                                              TaskStatus status,
                                              TaskPriority priority,
                                              String keyword,
                                              PageRequest pageRequest) {
-        User currentUser = userService.findByUsernameOrThrow(username);
+        Long currentUserId = userService.findByUsernameOrThrow(username).getId();
 
         if (pageRequest.sortBy() == SortBy.RANK) {
-            return listTasksWithRankSorting(currentUser, status, priority,keyword, pageRequest);
+            return getTasksWithRankSorting(currentUserId, null, status, priority,keyword, pageRequest);
         }
+
+        // Handles filtering, sorting, and pagination in database layer
+        Specification<Task> spec = TaskSpecifications.buildDashboardTasks(
+            currentUserId, status, priority, keyword);
 
         // Establish Sorting
         Sort.Direction direction = Sort.Direction.DESC;
@@ -57,10 +77,6 @@ public class TaskService {
             pageRequest.size(),
             Sort.by(direction, sortField)
         );
-
-        // Handles filtering, sorting, and pagination in database layer
-        Specification<Task> spec = TaskSpecifications.buildSpecification(
-            currentUser.getId(), status, priority, keyword);
     
         Page<Task> taskPage = taskRepository.findAll(spec, pageable);
 
@@ -77,15 +93,73 @@ public class TaskService {
             records);
     }
 
-    private PageResult<TaskResponse> listTasksWithRankSorting(User currentUser,
+    // Get team tasks of the current teamwith sorting and pagination
+    @Transactional
+    public PageResult<TaskResponse> getTeamTasks(String username,
+                                             Long teamId,
+                                             TaskStatus status,
+                                             TaskPriority priority,
+                                             String keyword,
+                                             PageRequest pageRequest) {
+        // Authenticate: Get current user and check whether the user is a member of the team
+        User currentUser = userService.findByUsernameOrThrow(username);
+        teamAuthorizationService.requireMembership(teamId, currentUser.getId());
+
+        // Build Specification: Handles filtering, sorting, and pagination in database layer
+        Specification<Task> spec = TaskSpecifications.buildTeamTasks(
+            teamId, status, priority, keyword);
+        
+        if (pageRequest.sortBy() == SortBy.RANK) {
+            return getTasksWithRankSorting(null, teamId, status, priority,keyword, pageRequest);
+        }
+
+        // Establish Sorting
+        Sort.Direction direction = Sort.Direction.DESC;
+        String sortField = pageRequest.sortBy().getValue();
+        if (pageRequest.sortBy() == SortBy.DUE_AT || pageRequest.sortBy() == SortBy.STATUS) {
+            direction = Sort.Direction.ASC;
+        }
+
+        // Establish Page Request
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(
+            pageRequest.page() - 1, 
+            pageRequest.size(),
+            Sort.by(direction, sortField)
+        );
+    
+        Page<Task> taskPage = taskRepository.findAll(spec, pageable);
+
+        List<TaskResponse> records = taskPage.getContent()
+            .stream()
+            .map(this::toResponse)
+            .toList();
+
+        return new PageResult<>(
+            (int) taskPage.getTotalElements(),
+            taskPage.getTotalPages(),
+            pageRequest.page(),
+            pageRequest.size(),
+            records);
+    }
+
+    private PageResult<TaskResponse> getTasksWithRankSorting(   @Nullable Long currentUserId,
+                                                                @Nullable Long teamId,
                                                                 TaskStatus status,
                                                                 TaskPriority priority,
                                                                 String keyword,
                                                                 PageRequest pageRequest) {
         
         // Filtering
-        Specification<Task> spec = TaskSpecifications.buildSpecification(
-            currentUser.getId(), status, priority, keyword);
+        Specification<Task> spec = null;
+        if (currentUserId != null) {
+            spec = TaskSpecifications.buildDashboardTasks(
+                currentUserId, status, priority, keyword);
+        } else if (teamId != null) {
+            spec = TaskSpecifications.buildTeamTasks(
+                teamId, status, priority, keyword);
+        } else {
+            throw new IllegalArgumentException("currentUserId and teamId cannot both be null");
+        }
     
         List<Task> filteredTasks = taskRepository.findAll(spec);
         
@@ -119,12 +193,28 @@ public class TaskService {
         );
     }
 
+    // Get a single task by id with the constraint 
+    // that user can only access their personal tasks or tasks of the team to which they belong
+    @Transactional
     public TaskResponse getTask(String username, Long taskId) {
         User currentUser = userService.findByUsernameOrThrow(username);
-        return toResponse(findTaskOrThrow(currentUser.getId(), taskId));
+        Task task = findTaskOrThrow(taskId);
+        
+        if (task.getTeam() != null) {
+            teamAuthorizationService.requireMembership(task.getTeam().getId(), currentUser.getId());
+        } else {
+            if (!task.getOwner().getId().equals(currentUser.getId())) {
+                throw new ForbiddenOperationException("无权查看该任务");
+            }
+        }
+
+        return toResponse(task);
     }
 
-    public TaskResponse createTask(String username, TaskCreateRequest request) {
+    // ====== Create Task ======
+    // Create personal task
+    @Transactional
+    public TaskResponse createPersonalTask(String username, TaskCreateRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
 
         Task task = new Task();
@@ -140,9 +230,31 @@ public class TaskService {
         return toResponse(taskRepository.save(task));
     }
 
-    public TaskResponse updateTask(String username, Long taskId, TaskUpdateRequest request) {
+    // Create team task(needs Admin or Owner role in the team)
+    @Transactional
+    public TaskResponse createTeamTask(String username, Long teamId, TeamTaskCreateRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
-        Task task = findTaskOrThrow(currentUser.getId(), taskId);
+
+        // Check if the current user is an admin or owner of the team
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("团队不存在"));
+        teamAuthorizationService.requireAdminOrOwner(team.getId(), currentUser.getId());
+
+        // Create task
+        Task task = new Task();
+        task.setOwner(currentUser);
+        task.setTeam(team);
+
+        // Check if the current user is an admin or owner of the team and set assignee if provided
+        if (request.assigneeId() != null) {
+            User assignee = userService.findByIdOrThrow(request.assigneeId());
+            if (!teamMembershipRepository.existsByTeamIdAndUserId(team.getId(), request.assigneeId())) {
+                throw new BusinessException("分配人不是团队成员");
+            }
+            task.setAssignee(assignee);
+        }
+        
+        // Apply other changes
         applyTaskChanges(
                 task,
                 request.title(),
@@ -150,67 +262,103 @@ public class TaskService {
                 request.status(),
                 request.priority(),
                 request.dueAt());
-
+        
         return toResponse(taskRepository.save(task));
     }
 
+    // ====== Update Task ======
+    // Assign team task to a user(needs Admin or Owner role in the team)
+    @Transactional
+    public TaskResponse assignTask(String username, Long teamId, Long taskId, TaskAssignRequest request) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+
+        teamAuthorizationService.requireAdminOrOwner(teamId, currentUser.getId());
+        
+        Task task = findTaskOrThrow(taskId);
+        if (task.getTeam() == null || !task.getTeam().getId().equals(teamId)) {
+            throw new BusinessException("任务不属于该团队");
+        }
+        
+        User assignee = userService.findByIdOrThrow(request.assigneeId());
+        if (!teamMembershipRepository.existsByTeamIdAndUserId(task.getTeam().getId(), assignee.getId())) {
+            throw new BusinessException("分配人不是团队成员");
+        }
+        
+        task.setAssignee(assignee);
+        
+        return toResponse(taskRepository.save(task));
+    }
+
+    // Update task
+    @Transactional
+    public TaskResponse updateTask(String username, Long taskId, TaskUpdateRequest request) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        Task task = findTaskOrThrow(taskId);
+        
+        // Check if the task is a team task
+        if (task.getTeam() != null) {
+            // Team task
+            TeamMembership membership = teamAuthorizationService.requireMembership(task.getTeam().getId(), currentUser.getId());
+            TeamRole role = membership.getRole();
+            
+            boolean onlyStatusChange = isOnlyStatusChange(task, request);
+            
+            if (role == TeamRole.MEMBER) {
+                if (task.getAssignee() == null || !task.getAssignee().getId().equals(currentUser.getId())) {
+                    throw new ForbiddenOperationException("只能修改分配给你自己的任务");
+                }
+                if (!onlyStatusChange) {
+                    throw new ForbiddenOperationException("成员只能修改任务状态，不能修改标题、描述等其他字段");
+                }
+            }
+            // Else continue: Admin or Owner role / Member role but only modify status of the task assigned to him
+        } else {
+            // Personal task
+            if (!task.getOwner().getId().equals(currentUser.getId())) {
+                throw new ForbiddenOperationException("无权修改该任务");
+            }
+        }
+        
+        applyTaskChanges(
+                task,
+                request.title(),
+                request.description(),
+                request.status(),
+                request.priority(),
+                request.dueAt());
+        
+        return toResponse(taskRepository.save(task));
+    }
+
+    private boolean isOnlyStatusChange(Task existing, TaskUpdateRequest request) {
+        boolean titleSame = request.title() == null || existing.getTitle().equals(request.title());
+        boolean descSame = request.description() == null || existing.getDescription().equals(request.description());
+        boolean prioritySame = request.priority() == null || existing.getPriority().equals(request.priority());
+        boolean dueAtSame = request.dueAt() == null ||
+                (existing.getDueAt() != null && existing.getDueAt().equals(request.dueAt()));
+        return titleSame && descSame && prioritySame && dueAtSame && request.status() != null;
+    }
+
+    // ====== Delete Task ======
+    // Delete task
+    @Transactional
     public void deleteTask(String username, Long taskId) {
         User currentUser = userService.findByUsernameOrThrow(username);
-        Task task = findTaskOrThrow(currentUser.getId(), taskId);
+        Task task = findTaskOrThrow(taskId);
+        
+        if (task.getTeam() != null) {
+            teamAuthorizationService.requireAdminOrOwner(task.getTeam().getId(), currentUser.getId());
+        } else {
+            if (!task.getOwner().getId().equals(currentUser.getId())) {
+                throw new ForbiddenOperationException("无权删除该任务");
+            }
+        }
+
         taskRepository.delete(task);
     }
 
-    public PageResult<TaskResponse> page(PageRequest pageRequest, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        int pageNumber = Math.max(0, pageRequest.page() - 1);
-        int pageSize = pageRequest.size();
-        SortBy sortBy = pageRequest.sortBy();
-
-        List<Task> allTasks = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
-        List<Task> sortedTasks = applySorting(allTasks, sortBy);
-        
-        int start = pageNumber * pageSize;
-        int end = Math.min(start + pageSize, sortedTasks.size());
-        List<Task> pagedTasks = start < sortedTasks.size() ? 
-                                    sortedTasks.subList(start, end) : 
-                                    java.util.Collections.emptyList();
-        
-        List<TaskResponse> records = pagedTasks.stream()
-                .map(this::toResponse)
-                .toList();
-        
-        return new PageResult<>(
-                sortedTasks.size(),
-                (int) Math.ceil((double) sortedTasks.size() / pageSize),
-                pageRequest.page(),
-                pageSize,
-                records);
-    }
-
-    public List<TaskResponse> getFilteredTasks(String username, TaskStatus status, TaskPriority priority, SortBy sortBy) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        List<Task> result;
-
-        if (status == null && priority == null) {
-            result = taskRepository.findAllByOwnerIdOrderByUpdatedAtDesc(currentUser.getId());
-        } else if (status != null && priority == null) {
-            result = taskRepository.findByOwnerIdAndStatusOrderByUpdatedAtDesc(currentUser.getId(), status);
-        } else if (priority != null && status == null) {
-            result = taskRepository.findByOwnerIdAndPriorityOrderByUpdatedAtDesc(currentUser.getId(), priority);
-        } else {
-            result = taskRepository.findByOwnerIdAndStatusAndPriorityOrderByUpdatedAtDesc(
-                    currentUser.getId(),
-                    status,
-                    priority);
-        }
-
-        List<Task> sortedResult = applySorting(result, sortBy);
-
-        return sortedResult.stream().map(this::toResponse).toList();
-    }
-
-    private Task findTaskOrThrow(Long ownerId, Long taskId) {
-        return taskRepository.findByIdAndOwnerId(taskId, ownerId)
+    private Task findTaskOrThrow(Long taskId) {
+        return taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("任务不存在，或你无权访问该任务"));
     }
 
@@ -229,69 +377,21 @@ public class TaskService {
     }
 
     private TaskResponse toResponse(Task task) {
-        return new TaskResponse(
-                task.getId(),
-                task.getTitle(),
-                task.getDescription(),
-                task.getStatus(),
-                task.getPriority(),
-                task.getDueAt(),
-                task.getCreatedAt(),
-                task.getUpdatedAt());
-    }
-
-    /**
-     * Sorts the given task list based on the specified sorting criteria.
-     * 
-     * @param tasks the list of tasks to be sorted
-     * @param sortBy the sorting criteria, supports:
-     *               - rank: intelligent sorting based on priority, status, and due date
-     *               - dueAt: ascending by due date (most urgent first, null values last)
-     *               - createdAt: descending by creation date (newest first)
-     *               - priority: descending by priority (HIGH > MEDIUM > LOW)
-     *               - status: ascending by status
-     *               - updatedAt: descending by update time (default, newest first)
-     * @return the sorted list of tasks
-     */
-    private List<Task> applySorting(List<Task> tasks, SortBy sortBy) {
-
-        if (tasks == null || tasks.isEmpty()) {
-            return tasks;
+        if (task.getTeam() == null) {
+            return TaskResponse.fromPersonalTask(task);
         }
-    
-        switch (sortBy) {
-            case RANK:
-                return taskRankingService.sortTasks(tasks);
-            
-            case DUE_AT:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getDueAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
-                        .toList();
-
-            case CREATED_AT:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getCreatedAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                        .toList();
-
-            case PRIORITY:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getPriority,
-                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                        .toList();
-
-            case STATUS:
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getStatus,
-                                Comparator.nullsLast(Comparator.naturalOrder())))
-                        .toList();
-
-            default: // updatedAt
-                return tasks.stream()
-                        .sorted(Comparator.comparing(Task::getUpdatedAt,
-                                Comparator.nullsLast(Comparator.naturalOrder())).reversed())
-                        .toList();
+        TeamRole assigneeRole = null;
+        if (task.getAssignee() != null) {
+            try {
+                TeamMembership membership = teamAuthorizationService.requireMembership(
+                    task.getTeam().getId(), task.getAssignee().getId());
+                assigneeRole = membership.getRole();
+            } catch (ResourceNotFoundException e) {
+                // The assignee is not a member of the team, ignore it.
+                // Do not throw exception, just set assigneeRole to null
+                assigneeRole = null;
+            }
         }
+        return TaskResponse.fromTeamTask(task, assigneeRole);
     }
 }
