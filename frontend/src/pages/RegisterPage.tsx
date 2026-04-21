@@ -97,16 +97,16 @@ export function RegisterPage() {
   return (
     <AppShell
       title="Start with clean accounts, then grow toward team collaboration."
-      description="注册阶段先把用户名、密码约束和数据库落库做好，这是后续权限模型的基础。"
+      description=""
       aside={
         <>
           <div className="aside-card">
-            <h2>字段约束</h2>
-            <p>用户名限定 4-20 位且唯一；密码至少 6 位，并强制同时包含字母和数字。</p>
+            <h2></h2>
+            <p></p>
           </div>
           <div className="aside-card">
-            <h2>安全要求</h2>
-            <p>密码只会以哈希形式存储，不会在数据库中明文保存。</p>
+            <h2></h2>
+            <p></p>
           </div>
         </>
       }

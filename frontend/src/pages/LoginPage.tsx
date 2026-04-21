@@ -91,19 +91,19 @@ export function LoginPage() {
   return (
     <AppShell
       title="Ship the minimum viable collaboration system with a solid base."
-      description="先完成最小可运行版本，再给组内同学留下明确的接口、模块和协作空间。"
+      description=""
       aside={
         <>
           <div className="aside-card">
-            <h2>为什么先做登录</h2>
+            <h2></h2>
             <p>
-              认证是 Lab1 的第一层边界。没有用户身份，任务隔离与权限控制都没法成立。
+              
             </p>
           </div>
           <div className="aside-card">
-            <h2>本次实现策略</h2>
+            <h2></h2>
             <p>
-              用 JWT 保持前端刷新后的登录态，页面直接进入任务台，避免演示链路过长。
+              
             </p>
           </div>
         </>
