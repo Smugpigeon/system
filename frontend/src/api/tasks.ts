@@ -7,7 +7,8 @@ export type TaskQueryParams = {
   size?: number      
   status?: string    
   priority?: string  
-  sortBy?: string    
+  sortBy?: string  
+  keyword?: string  
 }
 
 export async function fetchTasks(params?: TaskQueryParams) {

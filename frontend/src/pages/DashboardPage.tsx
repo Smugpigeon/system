@@ -55,37 +55,29 @@ export function DashboardPage() {
       if (filters.priority !== 'ALL') {
         params.priority = filters.priority
       }
-      
+
+      if (filters.keyword.trim()) {
+        params.keyword = filters.keyword.trim()  
+      }
       const pageData = await fetchTasks(params)
       
       startTransition(() => { 
         setTotalPages(pageData.totalPages)
         setTotalRecords(pageData.totalRecords)
         
-        let filteredRecords = pageData.records
-        if (filters.keyword.trim()) {
-          const keyword = filters.keyword.toLowerCase()
-          filteredRecords = pageData.records.filter(task => 
-            task.title.toLowerCase().includes(keyword) ||
-            (task.description && task.description.toLowerCase().includes(keyword))
-          )
-        }
+        setTasks(pageData.records)
         
-        setTasks(filteredRecords)
-        
-        if (!filteredRecords.length) {
-          setSelectedTaskId(null)
-          setFormMode('create')
+        if (!pageData.records.length) {
+        setSelectedTaskId(null)
+        setFormMode('create')
+      } else {
+        const stillExists = pageData.records.some(t => t.id === selectedTaskId)
+        if (stillExists && selectedTaskId) {
         } else {
-          if (formMode === 'create' && selectedTaskId === null) {
-            return
-          }
-          const stillExists = filteredRecords.some(t => t.id === selectedTaskId)
-          if (!stillExists || selectedTaskId === null) {
-            setSelectedTaskId(filteredRecords[0].id)
-            setFormMode('edit')
-          }
+          setSelectedTaskId(pageData.records[0].id)
+          setFormMode('edit')
         }
+      }
       })
     } catch (error) {
       setLoadingError(getErrorMessage(error))
