@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Lab1-report-draft</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="report-export.css" />
+</head>
+<body>
+<h1 id="lab1-第14组实验报告">Lab1-第14组实验报告</h1>
+<h1 id="一系统实现">一、系统实现</h1>
+<hr />
+<h2 id="项目概述">1. 项目概述</h2>
+<div class="lead-paragraph">
+<p>我们当前采用前后端分离架构，后端基于 Spring Boot 3，前端基于 React +
+Vite，数据库使用
+H2。我们在实现核心功能的同时，也对异常处理、登录态维护、用户数据隔离、列表分页与筛选等细节做了工程化处理。同时我们高度重视系统的可扩展，以便在后续的实验中方便地加入新的功能。</p>
+</div>
+<hr />
+<h2 id="小组分工">2. 小组分工</h2>
+<p>本项目采用按模块拆分的协作方式，尽量保证每个功能点有清晰负责人，同时通过
+<code>feature/* -&gt; develop -&gt; main</code> 的流程进行协作。</p>
+<p>我们最终分工如下：</p>
+<table>
+<colgroup>
+<col style="width: 5%" />
+<col style="width: 10%" />
+<col style="width: 42%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr>
+<th>成员</th>
+<th>学号</th>
+<th>主要负责内容</th>
+<th>对应代码或文档</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>汤雨凡</td>
+<td>23307130372</td>
+<td>后端认证、数据库设计、产品测试、报告制作和提交</td>
+<td><code>backend/auth</code>、<code>backend/user</code>、<code>docs/</code></td>
+</tr>
+<tr>
+<td>李泽栋</td>
+<td>23307130271</td>
+<td>JWT 认证功能、任务模块、分页/筛选/排序代码优化</td>
+<td><code>backend/auth</code>、<code>backend/task</code></td>
+</tr>
+<tr>
+<td>李宇轩</td>
+<td>23307130248</td>
+<td>前端页面与交互</td>
+<td><code>frontend/src</code></td>
+</tr>
+<tr>
+<td>彭国渠</td>
+<td>23300246001</td>
+<td>测试、README、实验报告整理</td>
+<td><code>backend/src/test</code>、<code>docs/</code>、<code>README.md</code></td>
+</tr>
+<tr>
+<td>沈乐</td>
+<td>23307130278</td>
+<td>分页/筛选功能实现、Knife4j 接口文档集成</td>
+<td><code>backend/task</code>、<code>application.yaml</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="系统功能说明">3. 系统功能说明</h2>
+<h3 id="用户注册功能">3.1 用户注册功能</h3>
+<p>现有用户注册功能满足：</p>
+<ul>
+<li>用户名只允许包含字母、数字和下划线；</li>
+<li>用户名长度限制为 4 至 20 位；</li>
+<li>用户名在数据库中唯一，重复注册会被拒绝；</li>
+<li>密码长度至少为 6 位；</li>
+<li>密码必须同时包含字母和数字；</li>
+<li>密码在数据库中以哈希值保存，不以明文形式存储。</li>
+</ul>
+<p>后端注册接口由 <a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/auth/controller/AuthController.java">AuthController.java</a>
+和 <a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/auth/service/AuthService.java">AuthService.java</a>
+实现。前端注册页面位于 <a
+href="/Users/ericktom/Desktop/software_engineering/frontend/src/pages/RegisterPage.tsx">RegisterPage.tsx</a>，页面在用户输入阶段就会给出实时提示，从而减少无效请求。</p>
+<p>下面两张图展示注册功能的页面表现：</p>
+<figure>
+<img src="./screenshots/register-validation.png" alt="注册页输入校验" />
+<figcaption aria-hidden="true">注册页输入校验</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/register-duplicate-username.png"
+alt="重复用户名注册提示" />
+<figcaption aria-hidden="true">重复用户名注册提示</figcaption>
+</figure>
+<p>注册功能不仅实现了“能写入数据库”，还实现了字段约束、唯一性校验和错误提示闭环。</p>
+<p>3.2 用户登录功能</p>
+<p>本项目的处理方式如下：</p>
+<ul>
+<li>账号密码正确时，登录成功并进入任务管理界面；</li>
+<li>账号密码错误时，返回明确提示“用户名或密码错误”；</li>
+<li>未登录用户访问受保护任务接口时，会被后端拦截并返回
+<code>401</code>；</li>
+<li>本地已保存但失效的 Token 会在前端自动清理，并跳转回登录页；</li>
+<li>页面刷新后，前端会读取本地登录态并继续访问当前用户任务。</li>
+</ul>
+<p>登录页位于 <a
+href="/Users/ericktom/Desktop/software_engineering/frontend/src/pages/LoginPage.tsx">LoginPage.tsx</a>，登录态维护逻辑位于
+<a
+href="/Users/ericktom/Desktop/software_engineering/frontend/src/context/AuthContext.tsx">AuthContext.tsx</a>、<a
+href="/Users/ericktom/Desktop/software_engineering/frontend/src/utils/storage.ts">storage.ts</a>
+和 <a
+href="/Users/ericktom/Desktop/software_engineering/frontend/src/api/http.ts">http.ts</a>。后端鉴权链路则由
+<a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/config/SecurityConfig.java">SecurityConfig.java</a>、<a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/auth/security/JwtAuthenticationFilter.java">JwtAuthenticationFilter.java</a>
+和 <a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/auth/security/JwtService.java">JwtService.java</a>
+实现。</p>
+<p>相关页面截图如下：</p>
+<figure>
+<img src="./screenshots/login-success-dashboard.png"
+alt="登录成功后进入任务台" />
+<figcaption aria-hidden="true">登录成功后进入任务台</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/login-wrong-password.png" alt="错误密码提示" />
+<figcaption aria-hidden="true">错误密码提示</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/invalid-token-redirect.png"
+alt="失效 Token 后返回登录页" />
+<figcaption aria-hidden="true">失效 Token 后返回登录页</figcaption>
+</figure>
+<p>评“用户登录功能正确实现”“未登录用户不能访问需要身份认证的任务功能”“密码错误等异常情况能正确处理并提示”“登录状态应能被正确维护”这几项，在当前版本中均已形成完整闭环。</p>
+<h3 id="个人任务管理功能">3.3 个人任务管理功能</h3>
+<p>登录后的用户可以在任务页中管理自己的个人任务。系统目前支持：</p>
+<ul>
+<li>创建任务</li>
+<li>查看任务列表</li>
+<li>查看任务详情</li>
+<li>修改任务</li>
+<li>删除任务</li>
+<li>对任务列表进行分页、状态筛选、优先级筛选，以及前端关键词过滤</li>
+</ul>
+<p>每个任务包含以下字段：</p>
+<ul>
+<li>标题 <code>title</code></li>
+<li>描述 <code>description</code></li>
+<li>状态 <code>status</code></li>
+<li>优先级 <code>priority</code></li>
+<li>截止时间 <code>dueAt</code></li>
+<li>创建时间 <code>createdAt</code></li>
+<li>更新时间 <code>updatedAt</code></li>
+</ul>
+<p>这些字段在实体类 <a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/task/entity/Task.java">Task.java</a>
+中定义，并通过 <a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/common/model/AuditableEntity.java">AuditableEntity.java</a>
+统一补充创建时间与更新时间。</p>
+<p>任务页面位于 <a
+href="/Users/ericktom/Desktop/software_engineering/frontend/src/pages/DashboardPage.tsx">DashboardPage.tsx</a>，后端任务接口位于
+<a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/task/controller/TaskController.java">TaskController.java</a>
+和 <a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/task/service/TaskService.java">TaskService.java</a>。</p>
+<p>运行截图如下：</p>
+<figure>
+<img src="./screenshots/dashboard-after-register.png"
+alt="注册后进入任务页" />
+<figcaption aria-hidden="true">注册后进入任务页</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/dashboard-task-created.png"
+alt="创建任务成功" />
+<figcaption aria-hidden="true">创建任务成功</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/task-detail-edit.png" alt="任务详情与编辑" />
+<figcaption aria-hidden="true">任务详情与编辑</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/task-filtered-view.png" alt="任务筛选页面" />
+<figcaption aria-hidden="true">任务筛选页面</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/pagination-second-page.png"
+alt="分页到第二页" />
+<figcaption aria-hidden="true">分页到第二页</figcaption>
+</figure>
+<figure>
+<img src="./screenshots/task-delete-result.png"
+alt="删除任务后的页面状态" />
+<figcaption aria-hidden="true">删除任务后的页面状态</figcaption>
+</figure>
+<p>当前任务功能已满足“个人任务的创建、查看、修改、删除正确实现”“前端页面逻辑清晰，基本交互顺畅”“错误提示合理”。</p>
+<h3 id="用户数据隔离">3.4 用户数据隔离</h3>
+<p>Lab1
+明确要求“用户只能查看和操作自己的任务”。本项目通过以下方式实现：</p>
+<ul>
+<li>任务表中通过 <code>owner_id</code> 与用户表关联；</li>
+<li>后端每次操作任务时，先根据当前登录用户查询对应
+<code>User</code>；</li>
+<li>查询、更新、删除任务时，都会同时校验 <code>taskId</code> 和
+<code>ownerId</code>；</li>
+<li>如果任务不存在，或者不属于当前用户，统一返回“任务不存在，或你无权访问该任务”。</li>
+</ul>
+<p>也就是说，用户 A 无法通过构造请求直接读取或删除用户 B
+的任务。这一点既在服务层逻辑中实现，也在集成测试中验证通过。</p>
+<hr />
+<h2 id="系统设计与实现质量说明">4. 系统设计与实现质量说明</h2>
+<h3 id="前后端分离架构">4.1 前后端分离架构</h3>
+<p>本项目采用前后端分离架构：</p>
+<ul>
+<li>前端负责页面展示、表单交互、状态维护和错误提示；</li>
+<li>后端负责身份认证、业务逻辑、数据库操作和接口返回；</li>
+<li>前后端通过 REST 风格接口通信，统一使用 JSON 交换数据。</li>
+</ul>
+<p>目录结构上，后端位于 <code>backend/</code>，前端位于
+<code>frontend/</code>，两者可独立启动、独立构建、独立测试。</p>
+<h3 id="数据库设计">4.2 数据库设计</h3>
+<p>本项目目前主要包含两张核心表：</p>
+<ol type="1">
+<li><code>users</code></li>
+<li><code>tasks</code></li>
+</ol>
+<p>其中：</p>
+<ul>
+<li><code>users</code> 表保存用户 ID、用户名、密码哈希和审计字段；</li>
+<li><code>tasks</code> 表保存任务基础信息，并通过 <code>owner_id</code>
+关联所属用户；</li>
+<li>状态、优先级、排序类型等使用枚举实现，避免使用魔法字符串或魔法数字；</li>
+<li><code>title</code>、<code>description</code>、<code>username</code>、<code>password_hash</code>
+等字段都设置了长度与非空约束。</li>
+</ul>
+<p>以实体设计为例：</p>
+<ul>
+<li><a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/user/entity/User.java">User.java</a>
+中，用户名设置为唯一且长度不超过 20；</li>
+<li><a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/task/entity/Task.java">Task.java</a>
+中，任务标题、描述、状态、优先级、截止时间与所属用户关系都进行了清晰建模。</li>
+</ul>
+<p>这种设计既满足 Lab1
+的字段需求，也为后续增加团队、成员、评论、依赖关系等扩展留下了空间。</p>
+<h3 id="异常处理设计">4.3 异常处理设计</h3>
+<p>为了避免接口返回风格混乱，本项目实现了统一异常处理机制：</p>
+<ul>
+<li>业务校验错误使用 <code>BusinessException</code></li>
+<li>资源不存在或越权访问使用 <code>ResourceNotFoundException</code></li>
+<li>参数校验错误通过 <code>MethodArgumentNotValidException</code>
+统一转换</li>
+<li>兜底异常统一返回“服务器内部错误，请稍后重试”</li>
+</ul>
+<p>统一处理逻辑位于 <a
+href="/Users/ericktom/Desktop/software_engineering/backend/src/main/java/com/lab/taskmanager/common/exception/GlobalExceptionHandler.java">GlobalExceptionHandler.java</a>。所有接口统一返回
+<code>ApiResponse</code>
+结构，这样前后端在处理正常响应和错误响应时都更稳定，避免“同一种错误在不同接口里格式不一致”的情况。</p>
+<h3 id="代码结构清晰与可扩展性">4.4 代码结构清晰与可扩展性</h3>
+<p>为了方便后续 Lab
+继续扩展，本项目在结构上尽量避免把逻辑堆进一个控制器或一个服务类中，而是采用模块化拆分：</p>
+<ul>
+<li><code>auth</code> 模块：注册、登录、JWT、用户认证</li>
+<li><code>task</code> 模块：任务实体、DTO、服务、控制器、算法</li>
+<li><code>user</code> 模块：用户实体、仓库、查询服务</li>
+<li><code>common</code> 模块：统一返回结构、异常、审计基类</li>
+<li><code>config</code> 模块：安全配置、JWT 配置</li>
+</ul>
+<p>前端同样进行了拆分：</p>
+<ul>
+<li><code>pages</code> 放页面级组件</li>
+<li><code>components</code> 放可复用组件</li>
+<li><code>api</code> 放请求封装</li>
+<li><code>context</code> 放全局登录态</li>
+<li><code>types</code> 放类型定义</li>
+<li><code>utils</code> 放工具函数</li>
+</ul>
+<p>这种结构使当前 Lab1 的代码已经具备“继续迭代”的条件。</p>
+<hr />
+<h2 id="关键设计说明">5. 关键设计说明</h2>
+<h3 id="选择-jwt-而不是-session">5.1 选择 JWT 而不是 Session</h3>
+<p>我们最终选择 JWT的主要原因：</p>
+<ol type="1">
+<li>前后端分离项目中，JWT 更适合前端通过请求头携带身份信息；</li>
+<li>页面刷新后可以通过本地保存的 Token 继续维持登录态；</li>
+<li>后续若扩展多人协作、移动端或更多前端页面时，JWT
+方案更容易统一。</li>
+</ol>
+<h3 id="任务状态和优先级使用枚举">5.2 任务状态和优先级使用枚举</h3>
+<p>我们使用：</p>
+<ul>
+<li><code>TaskStatus</code></li>
+<li><code>TaskPriority</code></li>
+<li><code>SortBy</code></li>
+<li><code>TaskUrgencyLevel</code></li>
+</ul>
+<p>这些枚举统一表达业务语义。</p>
+<h3 id="任务列表加入分页和筛选">5.3 任务列表加入分页和筛选</h3>
+<p>我们做了两层考虑：</p>
+<ol type="1">
+<li>接口层支持分页，避免任务数量增大后一次性返回全部数据；</li>
+<li>页面层支持状态、优先级筛选，并额外提供前端关键词过滤，提高任务管理效率。</li>
+</ol>
+<p>这样既能满足当前 Lab1
+的最小版本需求，也能体现我们对后续扩展的预判。</p>
+<h3 id="额外保留测试代码">5.4 额外保留测试代码</h3>
+<p>我们额外保留了后端自动化测试代码，用来验证：</p>
+<ul>
+<li>注册校验</li>
+<li>登录鉴权</li>
+<li>任务 CRUD</li>
+<li>用户数据隔离</li>
+<li>分页与排序边界</li>
+</ul>
+<p>等功能的有效性。</p>
+<hr />
+<h2 id="测试与项目表现">6. 测试与项目表现</h2>
+<p>我们编写并执行了完整的测试，测试覆盖：</p>
+<ul>
+<li>后端启动测试</li>
+<li>认证控制器测试</li>
+<li>任务控制器测试</li>
+<li>任务排序算法测试</li>
+<li>面向 Lab1 要求的集成测试</li>
+<li>前端 <code>lint</code> 和 <code>build</code></li>
+<li>浏览器端真实回归与截图</li>
+</ul>
+<p>本次测试对应的主要测试文件包括：</p>
+<ul>
+<li><code>backend/src/test/java/com/lab/taskmanager/BackendApplicationTests.java</code>：用于验证后端应用上下文能够正常启动；</li>
+<li><code>backend/src/test/java/com/lab/taskmanager/auth/controller/AuthControllerTest.java</code>：用于验证注册、登录接口的参数校验与返回结果；</li>
+<li><code>backend/src/test/java/com/lab/taskmanager/task/controller/TaskControllerTest.java</code>：用于验证任务控制器的创建、列表、删除和参数校验行为；</li>
+<li><code>backend/src/test/java/com/lab/taskmanager/task/algorithm/TaskRankingServiceTest.java</code>：用于验证任务排序算法在不同优先级、状态和截止时间下的排序结果；</li>
+<li><code>backend/src/test/java/com/lab/taskmanager/acceptance/Lab1RequirementIntegrationTest.java</code>：用于按
+Lab1 验收要求验证注册、登录、鉴权、任务 CRUD、数据隔离和分页边界；</li>
+<li><code>backend/src/test/resources/application-test.yaml</code>：用于提供测试环境下的数据库与应用配置。</li>
+</ul>
+<p>当前实际结果：</p>
+<ul>
+<li><code>backend ./mvnw test</code>：15 项测试全部通过</li>
+<li><code>frontend npm run lint</code>：通过</li>
+<li><code>frontend npm run build</code>：通过</li>
+</ul>
+<hr />
+<h1 id="二git日志与ai说明">二、git日志与ai说明</h1>
+<h2 id="git-协作与分支流程说明">7. Git 协作与分支流程说明</h2>
+<p>我们在开发过程中采用了 <code>main / develop / feature / hotfix</code>
+的分支结构，并尽量按照 GitFlow 的要求开展开发。整体流程如下：</p>
+<ol type="1">
+<li>以 <code>main</code> 作为主分支；</li>
+<li>从 <code>main</code> 拉出 <code>develop</code>
+作为日常集成分支；</li>
+<li>新功能从 <code>develop</code> 创建 <code>feature/*</code>
+分支；</li>
+<li>功能完成后通过 Merge Request 合并回 <code>develop</code>；</li>
+<li>当里程碑稳定后，再将 <code>develop</code> 合并到
+<code>main</code>；</li>
+<li>发现主干问题后，再通过 <code>hotfix/*</code> 分支修复。</li>
+</ol>
+<p>从仓库历史看，我们并不是只建立了一个或两个临时分支，而是确实围绕不同模块使用了较完整的
+<code>feature/*</code> 与 <code>hotfix/*</code>
+流程。为了更贴近评分点，这里将分支使用情况进一步拆开说明。</p>
+<h3 id="实际使用过的主要-feature-分支">7.1 实际使用过的主要 Feature
+分支</h3>
+<p>与当前最终交付版本直接相关的主要 <code>feature</code> /
+<code>feat</code> 分支包括：</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 54%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr>
+<th>分支名</th>
+<th>主要内容</th>
+<th>合入目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feature/backend-scaffold</code></td>
+<td>后端工程骨架初始化、Maven Wrapper、H2、本地启动测试</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/user-domain</code></td>
+<td>用户实体、用户仓库、审计基类</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/auth-request-dto</code></td>
+<td>注册/登录请求 DTO 与基础参数校验</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/auth-api</code></td>
+<td>注册登录接口、认证服务、统一返回结构、认证控制器测试</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/task-domain</code></td>
+<td>任务实体、DTO、仓库、服务、资源不存在异常</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/task-controller</code></td>
+<td>任务 CRUD 控制器与控制器测试</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/task-ranking</code></td>
+<td>任务优先级排序算法与相关模型</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/frontend</code></td>
+<td>React 前端工程初始化与页面基础结构</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/page</code></td>
+<td>后端分页支持</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/filter</code></td>
+<td>状态/优先级筛选能力</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/jwt-auth</code></td>
+<td>JWT 鉴权、安全配置、认证链路打通</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/Swagger</code></td>
+<td>Swagger / Knife4j 文档能力</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/apply-rank-sorting</code></td>
+<td>统一排序能力、<code>sortBy</code> 参数、数据库分页优化</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/frontend-optimization</code></td>
+<td>前端分页接入、筛选联调、交互优化</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feat/add-test-suite-readme</code></td>
+<td>测试代码整理、README 测试说明补充</td>
+<td><code>develop</code></td>
+</tr>
+<tr>
+<td><code>feat/lab1-test-hardening</code></td>
+<td>测试加固、边界修复、报告相关测试支撑</td>
+<td><code>develop</code></td>
+</tr>
+</tbody>
+</table>
+<p>也就是说，我们并不是在 <code>develop</code>
+上直接堆所有代码，而是按后端基础、认证、任务模块、前端页面、分页/筛选、测试与文档等方向拆分了多条功能分支，这一点与实验文档要求的“小步提交、分支开发”是一致的。</p>
+<h3 id="实际发生过的-hotfix-流程">7.2 实际发生过的 Hotfix 流程</h3>
+<p>除了功能分支之外，我们在开发过程中还真实使用过两次
+<code>hotfix</code> 语义的修复流程。</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 35%" />
+<col style="width: 22%" />
+<col style="width: 27%" />
+</colgroup>
+<thead>
+<tr>
+<th>Hotfix 分支</th>
+<th>修复内容</th>
+<th>合入路径</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hotfix</code></td>
+<td>修复 Swagger 文档访问权限问题；调整 <code>application.yaml</code> 中
+JWT 配置结构</td>
+<td>先合入 <code>develop</code>，再随 <code>develop -&gt; main</code>
+进入主干</td>
+<td>对应提交
+<code>d9515c0</code>、<code>1dfcd26</code>，用于修复联调和文档访问问题</td>
+</tr>
+<tr>
+<td><code>hotfix/revert-main-direct-merges</code></td>
+<td>清理错误直接进入 <code>main</code> 的旧路线分支，并将
+<code>main</code> 与当前 <code>develop</code> 主线重新对齐</td>
+<td><code>hotfix/revert-main-direct-merges -&gt; main</code></td>
+<td>对应提交 <code>e459bbf</code> 和合并提交
+<code>3e58df4</code>，用于修复主干分叉问题</td>
+</tr>
+</tbody>
+</table>
+<p>第一条 <code>hotfix</code>
+分支主要解决的是运行与接口文档访问问题，属于典型的“功能基本具备，但存在关键配置错误”的修复；第二条
+<code>hotfix/revert-main-direct-merges</code>
+则是一次更典型的主干修复，处理的是错误分支进入 <code>main</code>
+后导致的主干偏移问题。</p>
+<p>下图为两次 hotfix 合并请求的实际截图：</p>
+<figure>
+<img src="./screenshots/git-hotfix-examples.png"
+alt="Hotfix 合并请求截图" />
+<figcaption aria-hidden="true">Hotfix 合并请求截图</figcaption>
+</figure>
+<h3 id="由一位同学发起另一位同学审核合入的实际例子">7.3
+由一位同学发起、另一位同学审核合入的实际例子</h3>
+<p>“开发者与合入者不是同一人”的几条merge：</p>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 25%" />
+<col style="width: 5%" />
+<col style="width: 24%" />
+<col style="width: 28%" />
+</colgroup>
+<thead>
+<tr>
+<th>源分支</th>
+<th>主要开发者</th>
+<th>合入目标</th>
+<th>实际合入者</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feature/page</code></td>
+<td>沈乐（CodeArts 作者名 <code>Kraft42</code>）</td>
+<td><code>develop</code></td>
+<td>李宇轩（CodeArts 作者名 <code>hid_mjqi-o7two7va5_</code>）</td>
+<td>分页功能由沈乐完成开发，后由李宇轩合入 <code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/apply-rank-sorting</code></td>
+<td>李泽栋（CodeArts 作者名 <code>hw026251075/hw026251075</code>）</td>
+<td><code>develop</code></td>
+<td>李宇轩（CodeArts 作者名 <code>hid_mjqi-o7two7va5_</code>）</td>
+<td>排序与分页优化分支由李泽栋完成主要开发，后由李宇轩合入</td>
+</tr>
+<tr>
+<td><code>feature/jwt-auth</code></td>
+<td>李泽栋（CodeArts 作者名 <code>hw026251075/hw026251075</code>）</td>
+<td><code>develop</code></td>
+<td>李宇轩（CodeArts 作者名 <code>hid_mjqi-o7two7va5_</code>）</td>
+<td>JWT 鉴权分支由李泽栋开发，最终由李宇轩合入</td>
+</tr>
+<tr>
+<td><code>feature/filter</code></td>
+<td>沈乐（CodeArts 作者名 <code>Kraft42</code>）</td>
+<td><code>develop</code></td>
+<td>汤雨凡（CodeArts 作者名 <code>hid_7sgnpgesx9wp06h</code>）</td>
+<td>筛选分支由沈乐开发，后由汤雨凡合入 <code>develop</code></td>
+</tr>
+<tr>
+<td><code>feature/frontend-optimization</code></td>
+<td>李宇轩</td>
+<td><code>develop</code></td>
+<td>彭国渠（CodeArts 作者名 <code>hid_1s77tf1d_ouaimx</code>）</td>
+<td>前端分页与联调优化由李宇轩开发，后由彭国渠合入</td>
+</tr>
+</tbody>
+</table>
+<p>我们在开发过程中实践一个同学发起 Merge
+Request，另一个同学完成审核与合入的协作实例。这一点对我们学习 Git
+的协作是有帮助的。</p>
+<p>下图展示了若干条 <code>feature/* -&gt; develop</code>
+的实际合并请求截图，其中包括分页、排序、JWT
+鉴权、筛选和前端优化等分支：</p>
+<figure>
+<img src="./screenshots/git-merge-examples.png"
+alt="Feature 分支合并请求截图" />
+<figcaption aria-hidden="true">Feature 分支合并请求截图</figcaption>
+</figure>
+<p>也有部分分支是由负责人本人在完成开发和自查后合入
+<code>develop</code>，例如早期后端小步拆分的：</p>
+<ul>
+<li><code>feature/backend-scaffold</code></li>
+<li><code>feature/user-domain</code></li>
+<li><code>feature/auth-request-dto</code></li>
+<li><code>feature/auth-api</code></li>
+<li><code>feature/task-domain</code></li>
+<li><code>feature/task-controller</code></li>
+<li><code>feat/add-test-suite-readme</code></li>
+<li><code>feat/lab1-test-hardening</code></li>
+</ul>
+<p>此外，也确实发生过一次主干修复流程：</p>
+<ul>
+<li><code>hotfix/revert-main-direct-merges</code></li>
+</ul>
+<p>这条 hotfix 分支用于清理错误进入主干的旧路线代码，并重新与当前
+<code>develop</code> 主线对齐，恰好也体现了 GitFlow 中“hotfix
+分支修复主分支问题”的实际使用过程。</p>
+<h3 id="信息提交规范">7.4 信息提交规范</h3>
+<p>在提交信息规范方面，我们尽量采用了清晰的前缀式 Commit
+Message，例如：</p>
+<ul>
+<li><code>feat: initialize spring boot backend scaffold</code></li>
+<li><code>feat: add basic auth api</code></li>
+<li><code>feat: add task controller</code></li>
+<li><code>feat: add lab1 test suite and update readme</code></li>
+<li><code>fix: allow public access to Swagger UI and API documentation endpoints</code></li>
+</ul>
+<hr />
+<h2 id="ai-辅助开发记录">8. AI 辅助开发记录</h2>
+<p>我们在开发过程中使用了 AI
+工具辅助完成部分工作，但并未直接把需求全文交给 AI 后原样提交，而是把 AI
+作为“辅助分析、辅助编码、辅助测试与辅助文档整理”的工具使用。</p>
+<h3 id="使用过的-ai-工具">8.1 使用过的 AI 工具</h3>
+<ul>
+<li>我们使用过的AI工具一共有：ChatGPT，Codex，Copilot，Claude
+Code和Deepseek。</li>
+</ul>
+<h3 id="ai-主要帮助的工作">8.2 AI 主要帮助的工作</h3>
+<ul>
+<li>生成后端工程初始化框架</li>
+<li>辅助补齐部分前后端样板代码</li>
+<li>协助设计测试用例与集成测试</li>
+<li>协助整理 README 和测试说明文档</li>
+<li>协助排查分支冲突和主干分叉问题</li>
+</ul>
+<h3 id="我们做过的人工修改">8.3 我们做过的人工修改</h3>
+<ul>
+<li>对 AI 生成代码进行了分支拆分和小步提交整理；</li>
+<li>对安全链路、异常处理、分页边界和失效 Token 场景做了人工修复；</li>
+<li>对测试文档和实验报告进行了重新组织，使其更符合课程要求；</li>
+<li>对冲突分支和主干问题进行了人工审阅和清理，而不是机械覆盖。</li>
+</ul>
+<h3 id="按提交整理的-ai-使用记录">8.4 按提交整理的 AI 使用记录</h3>
+<p>我们按成员对主要提交进行了整理(<code>Commit SHA</code> 保留前 12
+位)。另需说明的是，部分提交在 CodeArts
+中显示的是平台账号名，和组内实名并不完全一致，本文档按组内实际分工进行归类。</p>
+<h4 id="汤雨凡">（1）汤雨凡</h4>
+<table>
+<colgroup>
+<col style="width: 3%" />
+<col style="width: 7%" />
+<col style="width: 23%" />
+<col style="width: 42%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr>
+<th>提交编号</th>
+<th>Commit SHA</th>
+<th>Commit message</th>
+<th>提交内容</th>
+<th>AI 使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>提交0</td>
+<td><code>b57a2e224e17</code></td>
+<td><code>Initial commit</code></td>
+<td>完成仓库初始创建，建立最早的 README、LICENSE 和基础仓库结构。</td>
+<td>无</td>
+</tr>
+<tr>
+<td>提交1</td>
+<td><code>9b41a0cefe71</code></td>
+<td><code>feat: initialize spring boot backend scaffold</code></td>
+<td>初始化 Spring Boot 后端工程骨架，加入 Maven Wrapper、基础依赖、H2
+本地开发配置和启动测试。</td>
+<td>用于辅助生成工程骨架，并整理 commit 与改动说明。</td>
+</tr>
+<tr>
+<td>提交2</td>
+<td><code>35c1d4a0d398</code></td>
+<td><code>merge feature/backend-scaffold into develop</code></td>
+<td>将后端基础骨架分支合入
+<code>develop</code>，完成后端最小可运行框架接入。</td>
+<td>用于整理合并说明和提交信息。</td>
+</tr>
+<tr>
+<td>提交3</td>
+<td><code>ece54755324d</code></td>
+<td><code>feat: add user entity and repository</code></td>
+<td>新增用户实体、审计基类和用户仓库，为认证模块提供数据库基础。</td>
+<td>用于构建部分代码，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交4</td>
+<td><code>5d1397527ffb</code></td>
+<td><code>feat: add auth request dto</code></td>
+<td>新增注册与登录请求 DTO，并加入用户名、密码格式校验。</td>
+<td>用于构建部分代码，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交5</td>
+<td><code>8d5dc713f7d1</code></td>
+<td><code>feat: add basic auth api</code></td>
+<td>完成注册/登录接口、认证服务、统一返回结构和全局异常处理，并补充认证控制器测试。</td>
+<td>用于构建代码，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交6</td>
+<td><code>aa753d00056f</code></td>
+<td><code>feat: add task domain and service layer</code></td>
+<td>新增任务实体、枚举、DTO、仓库、任务服务和资源不存在异常，建立任务模块后端主体结构。</td>
+<td>用于构建代码，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交7</td>
+<td><code>f5b1c7fc07d2</code></td>
+<td><code>feat: add task ranking algorithm</code></td>
+<td>新增任务排序算法模块，根据优先级、状态和截止时间实现基础推荐排序，并加入单元测试。</td>
+<td>用于构建代码，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交8</td>
+<td><code>06fb7bc32cf0</code></td>
+<td><code>feat: add task controller</code></td>
+<td>新增任务控制器，打通任务 CRUD 接口，并补充任务控制器层测试。</td>
+<td>用于构建代码，并辅助书写 commit 信息。</td>
+</tr>
+</tbody>
+</table>
+<p>以下为汤雨凡最近 5 条提交截图汇总：</p>
+<figure>
+<img src="./screenshots/commit-tangyufan.png"
+alt="汤雨凡最近 5 条提交截图" />
+<figcaption aria-hidden="true">汤雨凡最近 5 条提交截图</figcaption>
+</figure>
+<h4 id="沈乐">（2）沈乐</h4>
+<table>
+<colgroup>
+<col style="width: 4%" />
+<col style="width: 8%" />
+<col style="width: 33%" />
+<col style="width: 42%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr>
+<th>提交编号</th>
+<th>Commit SHA</th>
+<th>Commit message</th>
+<th>提交内容</th>
+<th>AI 使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>提交1</td>
+<td><code>92372346e72a</code></td>
+<td><code>feat: add pagination support in TaskRepository and TaskService</code></td>
+<td>在 <code>TaskRepository</code> 和 <code>TaskService</code>
+中加入分页逻辑，使任务列表能够支持分页查询。</td>
+<td>用于编写 JPA 分页逻辑。</td>
+</tr>
+<tr>
+<td>提交2</td>
+<td><code>84a084165c10</code></td>
+<td><code>feat: implement pagination support in TaskController with PageRequest and PageResult classes</code></td>
+<td>在 <code>TaskController</code>
+中补充分页请求与分页结果对象接入，完善分页接口的控制器层实现。</td>
+<td>用于分页接口设计与代码整理。</td>
+</tr>
+<tr>
+<td>提交3</td>
+<td><code>259df04623ab</code></td>
+<td><code>feat: add pagination endpoint to TaskController</code></td>
+<td>为任务控制器新增分页接口入口，使前端能够按页获取任务列表。</td>
+<td>用于接口补全与提交说明整理。</td>
+</tr>
+<tr>
+<td>提交4</td>
+<td><code>1dfcd264c885</code></td>
+<td><code>fix: update JWT configuration structure in application.yaml</code></td>
+<td>调整 <code>application.yaml</code> 中 JWT
+配置结构，使配置项与当前认证链路保持一致。</td>
+<td>用于检查配置结构并辅助整理修复说明。</td>
+</tr>
+<tr>
+<td>提交5</td>
+<td><code>d9515c01b6e7</code></td>
+<td><code>fix: allow public access to Swagger UI and API documentation endpoints</code></td>
+<td>放开 Swagger / Knife4j
+文档相关路径的访问权限，保证接口文档页面可以正常打开。</td>
+<td>用于分析访问权限问题并辅助整理修复说明。</td>
+</tr>
+</tbody>
+</table>
+<p>以下为沈乐最近 5 条提交截图汇总：</p>
+<figure>
+<img src="./screenshots/commit-shenle.png"
+alt="沈乐最近 5 条提交截图" />
+<figcaption aria-hidden="true">沈乐最近 5 条提交截图</figcaption>
+</figure>
+<h4 id="李泽栋">（3）李泽栋</h4>
+<table>
+<colgroup>
+<col style="width: 2%" />
+<col style="width: 5%" />
+<col style="width: 24%" />
+<col style="width: 52%" />
+<col style="width: 14%" />
+</colgroup>
+<thead>
+<tr>
+<th>提交编号</th>
+<th>Commit SHA</th>
+<th>Commit message</th>
+<th>提交内容</th>
+<th>AI 使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>提交1</td>
+<td><code>f7f4aa441f43</code></td>
+<td><code>feat(auth): implement JWT authentication and security configuration</code></td>
+<td>新增
+<code>JwtService</code>、<code>JwtAuthenticationFilter</code>、<code>JwtProperties</code>、<code>CustomUserDetailsService</code>
+和 <code>SecurityConfig</code>，并更新认证返回结构与依赖配置。</td>
+<td>用于构建部分代码，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交2</td>
+<td><code>89244abab9fd</code></td>
+<td><code>use Spring-managed PasswordEncoder and suppress deprecation warnings</code></td>
+<td>用 Spring 管理的 <code>PasswordEncoder</code>
+替换手动创建方式，并补充兼容性处理。</td>
+<td>用于代码检查，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交3</td>
+<td><code>0e5d1ee3cdda</code></td>
+<td><code>merge: resolve conflicts from origin/develop into feature/jwt-auth</code></td>
+<td>解决 <code>feature/jwt-auth</code> 与 <code>develop</code>
+的冲突，统一 <code>pom.xml</code> 和配置文件结构。</td>
+<td>用于辅助书写冲突处理说明和 commit 信息。</td>
+</tr>
+<tr>
+<td>提交4</td>
+<td><code>10f48bff09df</code></td>
+<td><code>feat: apply ranking sorting algorithm</code></td>
+<td>为任务列表加入 <code>sortBy</code>
+参数和统一排序逻辑，支持智能排序、截止时间排序、创建时间排序、优先级排序、状态排序和更新时间排序。</td>
+<td>用于部分代码实现，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交5</td>
+<td><code>8fe265aa1f8b</code></td>
+<td><code>feat: add SortBy enum for type-safe task sorting</code></td>
+<td>新增 <code>SortBy</code>
+枚举和字符串转换逻辑，统一控制器与服务层的排序类型表达。</td>
+<td>用于辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交6</td>
+<td><code>f648a01f4ba6</code></td>
+<td><code>perf: optimize task list with database pagination</code></td>
+<td>合并 <code>/page</code> 和 <code>/filter</code> 为统一的
+<code>GET /api/tasks</code>
+接口，将分页下推到数据库层，并补充接口迁移说明。</td>
+<td>用于编写部分代码，并辅助书写 commit 信息。</td>
+</tr>
+</tbody>
+</table>
+<p>以下为李泽栋最近 5 条提交截图汇总：</p>
+<figure>
+<img src="./screenshots/commit-lizedong.png"
+alt="李泽栋最近 5 条提交截图" />
+<figcaption aria-hidden="true">李泽栋最近 5 条提交截图</figcaption>
+</figure>
+<h4 id="李宇轩">（4）李宇轩</h4>
+<table>
+<colgroup>
+<col style="width: 3%" />
+<col style="width: 6%" />
+<col style="width: 21%" />
+<col style="width: 42%" />
+<col style="width: 26%" />
+</colgroup>
+<thead>
+<tr>
+<th>提交编号</th>
+<th>Commit SHA</th>
+<th>Commit message</th>
+<th>提交内容</th>
+<th>AI 使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>提交1</td>
+<td><code>4d1bd366b88e</code></td>
+<td><code>feat: init frontend with Vite + React + TypeScript</code></td>
+<td>初始化前端工程，建立 React + Vite + TypeScript
+开发环境，并加入路由、Axios、ESLint 和环境配置。</td>
+<td>用于辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交2</td>
+<td><code>cab759dc4e76</code></td>
+<td><code>feat: add types and utils modules</code></td>
+<td>新增
+API、认证、任务相关类型定义，以及日期格式化和本地存储工具函数。</td>
+<td>用于整体框架构建，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交3</td>
+<td><code>c5ff0673d35d</code></td>
+<td><code>feat: add authentication context</code></td>
+<td>新增全局认证上下文与 <code>useAuth</code>
+Hook，实现登录态管理和本地存储同步。</td>
+<td>用于代码检查，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交4</td>
+<td><code>9e13a1fec2f7</code></td>
+<td><code>feat: add reusable UI components</code></td>
+<td>新增
+<code>AuthCard</code>、<code>ProtectedRoute</code>、<code>TaskForm</code>、<code>TaskList</code>、<code>TaskFilters</code>、<code>Toast</code>
+等复用组件。</td>
+<td>用于部分组件代码实现、优化和 commit 说明整理。</td>
+</tr>
+<tr>
+<td>提交5</td>
+<td><code>228cfa7c2188</code></td>
+<td><code>feat: add api, app and layout modules</code></td>
+<td>新增前端 API
+层、路由层与页面布局，形成页面到接口的基本连接结构。</td>
+<td>用于生成所需功能类型、提供实现思路，并辅助书写 commit 信息。</td>
+</tr>
+<tr>
+<td>提交6</td>
+<td><code>4b99965b723b</code></td>
+<td><code>feat: add page components</code></td>
+<td>新增登录页、注册页、任务主页和 404 页面，完成前端主要页面搭建。</td>
+<td>用于主要功能页代码完善、页面文案生成和 commit 说明整理。</td>
+</tr>
+<tr>
+<td>提交7</td>
+<td><code>91d2cec9d1e7</code></td>
+<td><code>feat: integrate app root and global styles</code></td>
+<td>完成应用根组件接入，并补充全局样式、布局样式和响应式设计。</td>
+<td>用于 <code>index.css</code> 构建、代码完善检查和 commit
+说明整理。</td>
+</tr>
+<tr>
+<td>提交8</td>
+<td><code>74ae3c3607bc</code></td>
+<td><code>feat: integrate pagination and backend filtering</code></td>
+<td>接入分页参数、分页 UI、后端筛选接口，并保留前端关键词搜索逻辑。</td>
+<td>用于找出需要修改的代码位置、给出修改方案，并辅助书写 commit
+信息。</td>
+</tr>
+</tbody>
+</table>
+<p>以下为李宇轩最近 5 条提交截图汇总：</p>
+<figure>
+<img src="./screenshots/commit-liyuxuan.png"
+alt="李宇轩最近 5 条提交截图" />
+<figcaption aria-hidden="true">李宇轩最近 5 条提交截图</figcaption>
+</figure>
+<h4 id="彭国渠">（5）彭国渠</h4>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 3%" />
+<col style="width: 6%" />
+<col style="width: 17%" />
+<col style="width: 42%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr>
+<th>提交编号</th>
+<th>Commit SHA</th>
+<th>Commit message</th>
+<th>提交内容</th>
+<th>AI 使用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>提交1</td>
+<td><code>af17fec0fc20</code></td>
+<td><code>更新 README.md</code></td>
+<td>更新项目 README，补充项目结构、接口文档和运行说明。</td>
+<td>用于生成 Markdown 表格格式的 API
+文档、编写项目结构说明，并检查技术栈描述。</td>
+</tr>
+<tr>
+<td>提交2</td>
+<td><code>26d97f3bf599</code></td>
+<td><code>TaskServiceTest</code></td>
+<td>在任务服务相关位置补充业务逻辑实现与验证思路，围绕任务创建、查询、更新、删除等流程完善服务层。</td>
+<td>用于主要功能代码完善、文本生成以及 commit 说明整理。</td>
+</tr>
+<tr>
+<td>提交3</td>
+<td><code>20426c8ca786</code></td>
+<td><code>merge feature/readme into main</code></td>
+<td>将 <code>feature/readme</code> 分支合入 <code>main</code>，同步更新
+README，并新增 <code>run.sh</code> 启动脚本，补充项目运行说明。</td>
+<td>未单独记录，主要为分支合并操作与文档整理。</td>
+</tr>
+<tr>
+<td>提交4</td>
+<td><code>d2825805cdaf</code></td>
+<td><code>merge feature/fronted-router into main</code></td>
+<td>将 <code>feature/fronted-router</code> 分支合入
+<code>main</code>，加入前端 Axios
+请求封装、路由入口以及早期任务列表页面。</td>
+<td>未单独记录，主要为分支合并操作与前端结构接入。</td>
+</tr>
+<tr>
+<td>提交5</td>
+<td><code>e89f3d8b0c6b</code></td>
+<td><code>merge feature/frontend-develop into main</code></td>
+<td>将 <code>feature/frontend-develop</code> 分支合入
+<code>main</code>，补入早期前端基础工程文件以及对应控制器入口。</td>
+<td>未单独记录，主要为分支合并操作与前端基础结构整理。</td>
+</tr>
+</tbody>
+</table>
+<p>需要说明的是，彭国渠最近 5 条提交中后 3 条属于项目早期直接进入
+<code>main</code> 的合并历史；这部分在后续已经通过
+<code>hotfix/revert-main-direct-merges</code>
+完成清理和主干对齐，因此在最终代码状态中已被修正。</p>
+<p>以下为彭国渠最近 5 条提交截图汇总：</p>
+<figure>
+<img src="./screenshots/commit-pengguoqu.png"
+alt="彭国渠最近 5 条提交截图" />
+<figcaption aria-hidden="true">彭国渠最近 5 条提交截图</figcaption>
+</figure>
+<hr />
+<h2 id="评分点对照与自评">9. 评分点对照与自评</h2>
+<p>我们做了一个按分值组织的自评表，仅供参考。</p>
+<h3 id="part-i-功能需求实现">9.1 Part I 功能需求实现</h3>
+<table>
+<colgroup>
+<col style="width: 28%" />
+<col style="width: 8%" />
+<col style="width: 63%" />
+</colgroup>
+<thead>
+<tr>
+<th>得分点</th>
+<th>当前情况</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户注册功能正确实现</td>
+<td>已实现</td>
+<td>注册接口、用户名唯一性校验、密码规则校验、注册截图</td>
+</tr>
+<tr>
+<td>用户登录功能正确实现</td>
+<td>已实现</td>
+<td>登录接口、JWT 登录态、错误密码提示截图</td>
+</tr>
+<tr>
+<td>个人任务 CRUD 正确实现</td>
+<td>已实现</td>
+<td>任务列表页、创建/编辑/删除截图、TaskController/TaskService</td>
+</tr>
+<tr>
+<td>不同用户任务隔离</td>
+<td>已实现</td>
+<td>集成测试验证不同用户不能访问他人任务</td>
+</tr>
+<tr>
+<td>前端页面逻辑清晰、交互顺畅</td>
+<td>已实现</td>
+<td>登录/注册/任务页完整链路截图</td>
+</tr>
+<tr>
+<td>错误提示合理</td>
+<td>已实现</td>
+<td>注册校验、登录失败、失效 Token、空筛选提示</td>
+</tr>
+</tbody>
+</table>
+<h3 id="part-ii-系统设计与实现质量">9.2 Part II 系统设计与实现质量</h3>
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 10%" />
+<col style="width: 62%" />
+</colgroup>
+<thead>
+<tr>
+<th>得分点</th>
+<th>当前情况</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>前后端分离架构</td>
+<td>已实现</td>
+<td><code>backend/</code> 与 <code>frontend/</code> 独立结构</td>
+</tr>
+<tr>
+<td>数据库设计合理</td>
+<td>已实现</td>
+<td><code>users</code> / <code>tasks</code>
+实体设计、字段约束、关联关系</td>
+</tr>
+<tr>
+<td>异常处理合理</td>
+<td>已实现</td>
+<td>全局异常处理、统一响应结构</td>
+</tr>
+<tr>
+<td>代码结构清晰、便于扩展</td>
+<td>已实现</td>
+<td>模块化分包、前端组件化拆分</td>
+</tr>
+</tbody>
+</table>
+<h3 id="part-iii-git-协作">9.3 Part III Git 协作</h3>
+<table>
+<colgroup>
+<col style="width: 29%" />
+<col style="width: 8%" />
+<col style="width: 61%" />
+</colgroup>
+<thead>
+<tr>
+<th>得分点</th>
+<th>当前情况</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每位成员都有提交记录</td>
+<td>已满足</td>
+<td>Git 作者统计 + 每人最近 5 条 commit 截图</td>
+</tr>
+<tr>
+<td>Commit Message 规范</td>
+<td>已满足</td>
+<td><code>feat:</code> / <code>fix:</code> / <code>merge:</code>
+等规范提交信息</td>
+</tr>
+<tr>
+<td>分支开发流程规范，至少一次 MR</td>
+<td>已满足</td>
+<td>多个 <code>feature/* -&gt; develop</code>，至少一个
+<code>hotfix/* -&gt; main</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="part-iv-ai-协作与设计说明">9.4 Part IV AI 协作与设计说明</h3>
+<table>
+<thead>
+<tr>
+<th>得分点</th>
+<th>当前情况</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AI 使用记录真实清晰</td>
+<td>已满足</td>
+<td>本报告第 8 节</td>
+</tr>
+<tr>
+<td>能解释关键设计决策</td>
+<td>已满足</td>
+<td>本报告第 5 节</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</body>
+</html>
