@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { Link } from 'react-router-dom'
 import { createTask, deleteTask, fetchTasks, fetchTeamTasks, updateTask, type TaskQueryParams } from '../api/tasks'
 import { fetchMyTeams } from '../api/team'
 import { getErrorMessage } from '../api/http'
@@ -114,7 +115,6 @@ export function DashboardPage() {
         return
       }
 
-      // 并发拉取每个团队的任务，再按当前用户名过滤
       const perTeamPages = await Promise.all(
         myTeams.map((team) =>
           fetchTeamTasks(team.id, { page: 1, size: 100, sortBy: 'updatedAt' })
@@ -127,8 +127,6 @@ export function DashboardPage() {
       for (const { team, page } of perTeamPages) {
         if (!page) continue
         for (const task of page.records) {
-          // 后端 Task 若含 assigneeUsername 则严格按它过滤；
-          // 字段缺失时降级为展示该团队全部任务（保证不空白）
           const assignee =
             (task as unknown as { assigneeUsername?: string | null }).assigneeUsername
           if (assignee === undefined || assignee === null || assignee === auth.username) {
@@ -254,9 +252,16 @@ export function DashboardPage() {
         <>
           <div className="aside-card">
             <h2>快捷导航</h2>
-            <ul className="nav-list">
-              <li className="nav-item">
-                <a href="/teams" className="nav-link">我的团队</a>
+            <ul className="checkpoint-list">
+              <li className="checkpoint-item">
+                <span className="checkpoint-title">个人任务工作台</span>
+                <span className="checkpoint-copy">当前页面</span>
+              </li>
+              <li className="checkpoint-item">
+                <Link to="/teams" className="checkpoint-title">
+                  我的团队
+                </Link>
+                <span className="checkpoint-copy">查看所在团队及角色</span>
               </li>
             </ul>
           </div>
@@ -320,6 +325,9 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="toolbar">
+          <Link to="/teams" className="button-ghost" style={{ textDecoration: 'none' }}>
+            我的团队
+          </Link>
           <button className="button-primary" type="button" onClick={handleOpenCreate}>
             新建任务
           </button>
