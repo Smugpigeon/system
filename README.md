@@ -82,24 +82,24 @@ backend/src/test/java/com/lab/taskmanager/
 
 当前和 Lab1 验收最相关的测试代码主要有：
 
-- [backend/src/test/java/com/lab/taskmanager/BackendApplicationTests.java](/Users/ericktom/Desktop/software_engineering/backend/src/test/java/com/lab/taskmanager/BackendApplicationTests.java)
+- `backend/src/test/java/com/lab/taskmanager/BackendApplicationTests.java`
   说明：验证 Spring Boot 测试上下文能正常启动。
 
-- [backend/src/test/java/com/lab/taskmanager/auth/controller/AuthControllerTest.java](/Users/ericktom/Desktop/software_engineering/backend/src/test/java/com/lab/taskmanager/auth/controller/AuthControllerTest.java)
+- `backend/src/test/java/com/lab/taskmanager/auth/controller/AuthControllerTest.java`
   说明：验证注册、登录接口在控制器层的返回结构和错误响应。
 
-- [backend/src/test/java/com/lab/taskmanager/task/controller/TaskControllerTest.java](/Users/ericktom/Desktop/software_engineering/backend/src/test/java/com/lab/taskmanager/task/controller/TaskControllerTest.java)
+- `backend/src/test/java/com/lab/taskmanager/task/controller/TaskControllerTest.java`
   说明：验证任务列表、创建、删除和参数校验等控制器行为。
 
-- [backend/src/test/java/com/lab/taskmanager/acceptance/Lab1RequirementIntegrationTest.java](/Users/ericktom/Desktop/software_engineering/backend/src/test/java/com/lab/taskmanager/acceptance/Lab1RequirementIntegrationTest.java)
+- `backend/src/test/java/com/lab/taskmanager/acceptance/Lab1RequirementIntegrationTest.java`
   说明：面向 Lab1 验收要求的集成测试，覆盖注册、登录、鉴权、任务 CRUD、数据隔离、分页边界等核心流程。
 
-- [backend/src/test/java/com/lab/taskmanager/task/algorithm/TaskRankingServiceTest.java](/Users/ericktom/Desktop/software_engineering/backend/src/test/java/com/lab/taskmanager/task/algorithm/TaskRankingServiceTest.java)
+- `backend/src/test/java/com/lab/taskmanager/task/algorithm/TaskRankingServiceTest.java`
   说明：验证任务排序算法中“逾期优先”“进行中临期优先”“已完成低紧急度”等规则。
 
 测试环境配置文件位于：
 
-- [backend/src/test/resources/application-test.yaml](/Users/ericktom/Desktop/software_engineering/backend/src/test/resources/application-test.yaml)
+- `backend/src/test/resources/application-test.yaml`
   说明：测试时使用 H2 内存数据库，保证自动化测试不受本地已有数据影响。
 
 ## 6. 如何运行测试

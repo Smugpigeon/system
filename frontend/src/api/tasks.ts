@@ -31,3 +31,23 @@ export async function updateTask(taskId: number, payload: TaskPayload) {
 export async function deleteTask(taskId: number) {
   await http.delete(`/tasks/${taskId}`)
 }
+
+xport type TeamTaskQueryParams = {
+  page?: number
+  size?: number
+  status?: string
+  priority?: string
+  keyword?: string
+  sortBy?: string
+}
+
+export async function fetchTeamTasks(
+  teamId: number,
+  params?: TeamTaskQueryParams,
+) {
+  const response = await http.get<ApiResponse<PageResponse<Task>>>(
+    `/teams/${teamId}/tasks`,
+    { params },
+  )
+  return response.data.data
+}
