@@ -2,9 +2,11 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react'
-import { createTask, deleteTask, fetchTasks, updateTask, type TaskQueryParams } from '../api/tasks'
+import { createTask, deleteTask, fetchTasks, fetchTeamTasks, updateTask, type TaskQueryParams } from '../api/tasks'
+import { fetchMyTeams } from '../api/team'
 import { getErrorMessage } from '../api/http'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
@@ -14,6 +16,10 @@ import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
 import type { Task, TaskFormValues, TaskPayload } from '../types/task'
 import { emptyTaskFormValues, taskToFormValues } from '../types/task'
+import type { TeamSummary } from '../types/team'
+
+type AssignedTeamTask = Task & { teamId: number; teamName: string }
+type ScopeFilter = 'ALL' | 'PERSONAL' | 'TEAM'
 
 export function DashboardPage() {
   const { auth, logout } = useAuth()
@@ -24,31 +30,38 @@ export function DashboardPage() {
   const [loadingError, setLoadingError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(10)
   const [totalPages, setTotalPages] = useState(0)
   const [totalRecords, setTotalRecords] = useState(0)
-  
+
   const [filters, setFilters] = useState<FilterOptions>({
     status: 'ALL',
     priority: 'ALL',
     keyword: ''
   })
-  
+
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+
+  // === 团队任务相关状态 ===
+  const [teams, setTeams] = useState<TeamSummary[]>([])
+  const [assignedTeamTasks, setAssignedTeamTasks] = useState<AssignedTeamTask[]>([])
+  const [teamTasksLoading, setTeamTasksLoading] = useState(false)
+  const [teamTasksError, setTeamTasksError] = useState('')
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('ALL')
 
   const loadTasks = useCallback(async () => {
     try {
       setLoading(true)
       setLoadingError('')
-      
+
       const params: TaskQueryParams = {
         page: currentPage,
         size: pageSize,
         sortBy: 'updatedAt'
       }
-      
+
       if (filters.status !== 'ALL') {
         params.status = filters.status
       }
@@ -57,16 +70,16 @@ export function DashboardPage() {
       }
 
       if (filters.keyword.trim()) {
-        params.keyword = filters.keyword.trim()  
+        params.keyword = filters.keyword.trim()
       }
       const pageData = await fetchTasks(params)
-      
-      startTransition(() => { 
+
+      startTransition(() => {
         setTotalPages(pageData.totalPages)
         setTotalRecords(pageData.totalRecords)
-        
+
         setTasks(pageData.records)
-        
+
         if (!pageData.records.length) {
         setSelectedTaskId(null)
         setFormMode('create')
@@ -87,17 +100,66 @@ export function DashboardPage() {
     }
   }, [currentPage, filters.status, filters.priority, filters.keyword, pageSize, selectedTaskId, formMode])
 
+  const loadAssignedTeamTasks = useCallback(async () => {
+    if (!auth?.username) return
+    try {
+      setTeamTasksLoading(true)
+      setTeamTasksError('')
+
+      const myTeams = await fetchMyTeams()
+      setTeams(myTeams)
+
+      if (myTeams.length === 0) {
+        setAssignedTeamTasks([])
+        return
+      }
+
+      // 并发拉取每个团队的任务，再按当前用户名过滤
+      const perTeamPages = await Promise.all(
+        myTeams.map((team) =>
+          fetchTeamTasks(team.id, { page: 1, size: 100, sortBy: 'updatedAt' })
+            .then((page) => ({ team, page }))
+            .catch(() => ({ team, page: null as null })),
+        ),
+      )
+
+      const merged: AssignedTeamTask[] = []
+      for (const { team, page } of perTeamPages) {
+        if (!page) continue
+        for (const task of page.records) {
+          // 后端 Task 若含 assigneeUsername 则严格按它过滤；
+          // 字段缺失时降级为展示该团队全部任务（保证不空白）
+          const assignee =
+            (task as unknown as { assigneeUsername?: string | null }).assigneeUsername
+          if (assignee === undefined || assignee === null || assignee === auth.username) {
+            merged.push({ ...task, teamId: team.id, teamName: team.name })
+          }
+        }
+      }
+      setAssignedTeamTasks(merged)
+    } catch (error) {
+      setTeamTasksError(getErrorMessage(error))
+    } finally {
+      setTeamTasksLoading(false)
+    }
+  }, [auth?.username])
+
   useEffect(() => {
     loadTasks()
   }, [currentPage, filters.status, filters.priority, loadTasks])
 
+  useEffect(() => {
+    loadAssignedTeamTasks()
+  }, [loadAssignedTeamTasks])
+
   const handleRefresh = () => {
     loadTasks()
+    loadAssignedTeamTasks()
   }
 
   const handleFilterChange = (newFilters: FilterOptions) => {
     setFilters(newFilters)
-    setCurrentPage(1) 
+    setCurrentPage(1)
   }
 
   const handleOpenCreate = () => {
@@ -176,12 +238,29 @@ export function DashboardPage() {
     done: tasks.filter((task) => task.status === 'DONE').length,
   }
 
+  const visibleTeamTasks = useMemo(() => {
+    if (scopeFilter === 'PERSONAL') return []
+    return assignedTeamTasks
+  }, [assignedTeamTasks, scopeFilter])
+
+  const showPersonalSection = scopeFilter !== 'TEAM'
+  const showTeamSection = scopeFilter !== 'PERSONAL'
+
   return (
     <AppShell
       title="Software Engineering Lab"
       description=""
       aside={
         <>
+          <div className="aside-card">
+            <h2>快捷导航</h2>
+            <ul className="nav-list">
+              <li className="nav-item">
+                <a href="/teams" className="nav-link">我的团队</a>
+              </li>
+            </ul>
+          </div>
+
           <div className="aside-card">
             <h2></h2>
             <ul className="checkpoint-list">
@@ -273,16 +352,35 @@ export function DashboardPage() {
           <div className="summary-number">{summary.done}</div>
           <p className="summary-note"></p>
         </article>
+        <article className="summary-card">
+          <h3>分配给我的团队任务</h3>
+          <div className="summary-number">{assignedTeamTasks.length}</div>
+          <p className="summary-note">来自 {teams.length} 个团队</p>
+        </article>
       </section>
 
       <section className="filters-section">
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          <span className="eyebrow">范围</span>
+          {(['ALL', 'PERSONAL', 'TEAM'] as ScopeFilter[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={scopeFilter === value ? 'button-primary' : 'button-ghost'}
+              onClick={() => setScopeFilter(value)}
+            >
+              {value === 'ALL' ? '全部' : value === 'PERSONAL' ? '个人任务' : '团队任务'}
+            </button>
+          ))}
+        </div>
         <TaskFilters
           onFilterChange={handleFilterChange}
           totalCount={totalRecords}
           filteredCount={tasks.length}
         />
       </section>
-      
+
+      {showPersonalSection && (
       <section className="content-grid">
         <article className="panel">
           <header className="panel-header">
@@ -387,7 +485,50 @@ export function DashboardPage() {
           </section>
         </article>
       </section>
-      
+      )}
+
+      {showTeamSection && (
+      <section className="content-grid" style={{ marginTop: '1.5rem' }}>
+        <article className="panel">
+          <header className="panel-header">
+            <p className="eyebrow">Team workload</p>
+            <h2 className="panel-title">分配给我的团队任务</h2>
+            <p className="panel-subtitle">
+              来自所有团队、当前指派给你的任务
+            </p>
+          </header>
+
+          {teamTasksLoading ? (
+            <div className="message message--note">正在加载团队任务...</div>
+          ) : teamTasksError ? (
+            <div className="message message--error">{teamTasksError}</div>
+          ) : visibleTeamTasks.length === 0 ? (
+            <div className="message message--note">暂无分配给你的团队任务。</div>
+          ) : (
+            <ul className="detail-list">
+              {visibleTeamTasks.map((task) => (
+                <li key={`${task.teamId}-${task.id}`} className="detail-item">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span className="detail-title">{task.title}</span>
+                      <span className="detail-copy">
+                        来自团队「{task.teamName}」 · 状态 {task.status} · 优先级 {task.priority}
+                      </span>
+                    </div>
+                    {task.dueAt && (
+                      <span className="detail-copy" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                        截止 {new Date(task.dueAt).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+      </section>
+      )}
+
       {toast && (
         <Toast
           message={toast.message}
