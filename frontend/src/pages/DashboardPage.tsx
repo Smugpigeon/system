@@ -79,8 +79,12 @@ export function DashboardPage() {
         setTotalPages(pageData.totalPages)
         setTotalRecords(pageData.totalRecords)
 
-        setTasks(pageData.records)
-
+        const personalTasks = pageData.records.filter(task => task.teamId === null)
+        setTasks(personalTasks)
+        if (formMode === 'create') {
+          return
+        }
+        
         if (!pageData.records.length) {
         setSelectedTaskId(null)
         setFormMode('create')
@@ -127,9 +131,7 @@ export function DashboardPage() {
       for (const { team, page } of perTeamPages) {
         if (!page) continue
         for (const task of page.records) {
-          const assignee =
-            (task as unknown as { assigneeUsername?: string | null }).assigneeUsername
-          if (assignee === undefined || assignee === null || assignee === auth.username) {
+          if (task.teamId !== null && task.assigneeId === auth?.userId) {
             merged.push({ ...task, teamId: team.id, teamName: team.name })
           }
         }
@@ -516,6 +518,10 @@ export function DashboardPage() {
             <ul className="detail-list">
               {visibleTeamTasks.map((task) => (
                 <li key={`${task.teamId}-${task.id}`} className="detail-item">
+                  <Link 
+                    to={`/teams/${task.teamId}`}
+                    style={{ textDecoration: 'none', display: 'block', width: '100%' }}
+                  >
                   <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ minWidth: 0 }}>
                       <span className="detail-title">{task.title}</span>
@@ -529,6 +535,7 @@ export function DashboardPage() {
                       </span>
                     )}
                   </div>
+                  </Link>
                 </li>
               ))}
             </ul>

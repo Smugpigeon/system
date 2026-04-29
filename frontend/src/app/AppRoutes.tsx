@@ -5,6 +5,7 @@ import { LoginPage } from '../pages/LoginPage'
 import { MyTeamsPage } from '../pages/MyTeamsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { RegisterPage } from '../pages/RegisterPage'
+import { TeamWorkspacePage } from '../pages/TeamWorkspacePage'
 
 export function AppRoutes() {
   return (
@@ -27,6 +28,14 @@ export function AppRoutes() {
             <MyTeamsPage />
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/teams/:teamId"
+        element={(
+          <ProtectedRoute>
+            <TeamWorkspacePage />
+          </ProtectedRoute>
+        )}
       />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

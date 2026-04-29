@@ -6,6 +6,11 @@ import {
   emptyTaskFormValues,
 } from '../types/task'
 
+type AssigneeOption = {
+  value: string
+  label: string
+}
+
 type TaskFormProps = {
   mode: 'create' | 'edit'
   initialValues?: TaskFormValues
@@ -14,6 +19,13 @@ type TaskFormProps = {
   onCancelCreate: () => void
   onDelete?: () => void
   onSubmit: (values: TaskFormValues) => Promise<void> | void
+  allowDetailEditing?: boolean
+  allowStatusEditing?: boolean
+  allowDelete?: boolean
+  showAssignee?: boolean
+  assigneeOptions?: AssigneeOption[]
+  readOnlyHint?: string
+  submitLabel?: string
 }
 
 export function TaskForm({
@@ -24,19 +36,28 @@ export function TaskForm({
   onCancelCreate,
   onDelete,
   onSubmit,
+  allowDetailEditing = true,
+  allowStatusEditing = true,
+  allowDelete = Boolean(onDelete),
+  showAssignee = false,
+  assigneeOptions = [],
+  readOnlyHint = '',
+  submitLabel,
 }: TaskFormProps) {
   const [formValues, setFormValues] = useState(initialValues)
 
   useEffect(() => {
     setFormValues(initialValues)
   }, [initialValues])
+
   useEffect(() => {
     if (mode === 'create') {
       setFormValues(emptyTaskFormValues)
     }
   }, [mode])
-  
+
   const isCreateMode = mode === 'create'
+  const canSubmit = isCreateMode || allowDetailEditing || allowStatusEditing
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
@@ -50,6 +71,9 @@ export function TaskForm({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!canSubmit) {
+      return
+    }
     await onSubmit(formValues)
   }
 
@@ -71,8 +95,9 @@ export function TaskForm({
           id="title"
           name="title"
           maxLength={120}
-          placeholder="例如：完成用户登录接口联调"
+          placeholder="例如：完成团队空间联调"
           required
+          disabled={!isCreateMode && !allowDetailEditing}
           value={formValues.title}
           onChange={handleChange}
         />
@@ -85,6 +110,7 @@ export function TaskForm({
           name="description"
           maxLength={1000}
           placeholder="补充任务背景、验收标准、备注信息"
+          disabled={!isCreateMode && !allowDetailEditing}
           value={formValues.description}
           onChange={handleChange}
         />
@@ -96,6 +122,7 @@ export function TaskForm({
           <select
             id="status"
             name="status"
+            disabled={!isCreateMode && !allowStatusEditing}
             value={formValues.status}
             onChange={handleChange}
           >
@@ -112,6 +139,7 @@ export function TaskForm({
           <select
             id="priority"
             name="priority"
+            disabled={!isCreateMode && !allowDetailEditing}
             value={formValues.priority}
             onChange={handleChange}
           >
@@ -124,23 +152,52 @@ export function TaskForm({
         </div>
       </div>
 
-      <div className="field">
-        <label htmlFor="dueAt">截止时间</label>
-        <input
-          id="dueAt"
-          name="dueAt"
-          type="datetime-local"
-          value={formValues.dueAt}
-          onChange={handleChange}
-        />
+      <div className="field-grid">
+        <div className="field">
+          <label htmlFor="dueAt">截止时间</label>
+          <input
+            id="dueAt"
+            name="dueAt"
+            type="datetime-local"
+            disabled={!isCreateMode && !allowDetailEditing}
+            value={formValues.dueAt}
+            onChange={handleChange}
+          />
+        </div>
+
+        {showAssignee ? (
+          <div className="field">
+            <label htmlFor="assigneeId">负责人</label>
+            <select
+              id="assigneeId"
+              name="assigneeId"
+              required
+              disabled={!isCreateMode && !allowDetailEditing}
+              value={formValues.assigneeId}
+              onChange={handleChange}
+            >
+              <option value="">请选择负责人</option>
+              {assigneeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
       </div>
 
+      {readOnlyHint ? <div className="message message--info">{readOnlyHint}</div> : null}
       {error ? <div className="message message--error">{error}</div> : null}
 
       <div className="form-actions">
-        <button className="button-primary" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? '提交中...' : isCreateMode ? '创建任务' : '保存修改'}
-        </button>
+        {canSubmit ? (
+          <button className="button-primary" type="submit" disabled={isSubmitting}>
+            {isSubmitting
+              ? '提交中...'
+              : submitLabel ?? (isCreateMode ? '创建任务' : '保存修改')}
+          </button>
+        ) : null}
         <button
           className="button-ghost"
           type="button"
@@ -149,7 +206,7 @@ export function TaskForm({
         >
           {isCreateMode ? '清空草稿' : '恢复当前内容'}
         </button>
-        {!isCreateMode && onDelete ? (
+        {!isCreateMode && allowDelete && onDelete ? (
           <button
             className="button-danger"
             type="button"

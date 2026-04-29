@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchMyTeams } from '../api/team'
+import { createTeam, fetchMyTeams } from '../api/team' 
 import { getErrorMessage } from '../api/http'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
 import { TEAM_ROLE_LABELS, type TeamRole, type TeamSummary } from '../types/team'
+import { useNavigate } from 'react-router-dom'
 
 type RoleFilter = 'ALL' | TeamRole
 
@@ -27,6 +28,9 @@ export function MyTeamsPage() {
     message: string
     type: 'success' | 'error' | 'info'
   } | null>(null)
+  const [teamName, setTeamName] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const navigate = useNavigate()
 
   const loadTeams = useCallback(async () => {
     try {
@@ -67,6 +71,24 @@ export function MyTeamsPage() {
       admin: teams.filter((t) => t.currentUserRole === 'ADMIN').length,
     }
   }, [teams])
+
+  const handleCreateTeam = async (event: React.FormEvent<HTMLFormElement>) => {
+  event.preventDefault()
+  if (!teamName.trim()) return
+
+  try {
+    setIsCreating(true)
+    await createTeam({ name: teamName.trim() })
+    setToast({ message: '团队创建成功', type: 'success' })
+    setTeamName('')
+    await loadTeams()
+  } catch (error) {
+    const msg = getErrorMessage(error)
+    setToast({ message: msg, type: 'error' })
+  } finally {
+    setIsCreating(false)
+  }
+}
 
   return (
     <AppShell
@@ -123,6 +145,25 @@ export function MyTeamsPage() {
           </button>
         </div>
       </header>
+      
+      <section className="panel" style={{ marginBottom: '1rem' }}>
+        <div className="panel-header">
+          <h2>创建新团队</h2>
+        </div>
+        <form className="inline-form" onSubmit={handleCreateTeam}>
+          <input
+            type="text"
+            placeholder="团队名称"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            maxLength={50}
+            required
+          />
+          <button className="button-primary" type="submit" disabled={isCreating}>
+            {isCreating ? '创建中...' : '创建团队'}
+          </button>
+        </form>
+      </section>
 
       <section className="filters-section">
         <div className="filters-row" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -171,7 +212,12 @@ export function MyTeamsPage() {
           ) : (
             <ul className="detail-list">
               {filteredTeams.map((team) => (
-                <li key={team.id} className="detail-item">
+                <li 
+                  key={team.id} 
+                  className="detail-item"
+                  onClick={() => navigate(`/teams/${team.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                     <div>
                       <span className="detail-title">{team.name}</span>
