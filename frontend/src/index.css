@@ -897,3 +897,85 @@ button {
   color: #4b5563;
   border-color: rgba(107, 114, 128, 0.3);
 }
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 1.5rem;
+}
+
+.workspace-grid__full {
+  grid-column: 1 / -1;
+}
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.member-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--paper-strong);
+}
+
+.member-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.inline-form input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+  .inline-form {
+    flex-direction: column;
+  }
+  .member-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+.badge--scope-personal {
+  background: #efe7dc;
+  color: #7a583e;
+}
+
+.badge--scope-team {
+  background: #dff3f1;
+  color: var(--teal);
+}
+
+.message--info {
+  background: #e2eef7;
+  color: var(--info);
+}
