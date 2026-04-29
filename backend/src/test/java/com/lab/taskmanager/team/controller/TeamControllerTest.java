@@ -112,7 +112,7 @@ class TeamControllerTest {
     void testGetTeamDetail() throws Exception {
         List<TeamMemberResponse> members = List.of(
                 new TeamMemberResponse(101L, "alice", TeamRole.OWNER),
-                new TeamMemberResponse(102L, "bob", TeamRole.MEMBER)
+                new TeamMemberResponse(102L, "saber", TeamRole.MEMBER)
         );
         TeamDetailResponse detail = new TeamDetailResponse(5L, "Gamma", TeamRole.ADMIN, members);
 
@@ -127,16 +127,16 @@ class TeamControllerTest {
                 .andExpect(jsonPath("$.data.currentUserRole").value("ADMIN"))
                 .andExpect(jsonPath("$.data.members[0].username").value("alice"))
                 .andExpect(jsonPath("$.data.members[0].role").value("OWNER"))
-                .andExpect(jsonPath("$.data.members[1].username").value("bob"))
+                .andExpect(jsonPath("$.data.members[1].username").value("saber"))
                 .andExpect(jsonPath("$.data.members[1].role").value("MEMBER"));
     }
 
     @Test
     void testAddMember() throws Exception {
-        TeamMemberResponse response = new TeamMemberResponse(200L, "bob", TeamRole.MEMBER);
+        TeamMemberResponse response = new TeamMemberResponse(200L, "saber", TeamRole.MEMBER);
         when(teamService.addMember(eq("alice"), eq(7L), any())).thenReturn(response);
 
-        String requestBody = objectMapper.writeValueAsString(new TeamMemberAddRequest("bob"));
+        String requestBody = objectMapper.writeValueAsString(new TeamMemberAddRequest("saber"));
 
         mockMvc.perform(post("/api/teams/7/members")
                         .principal(() -> "alice")
@@ -146,13 +146,13 @@ class TeamControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("团队成员添加成功"))
                 .andExpect(jsonPath("$.data.userId").value(200))
-                .andExpect(jsonPath("$.data.username").value("bob"))
+                .andExpect(jsonPath("$.data.username").value("saber"))
                 .andExpect(jsonPath("$.data.role").value("MEMBER"));
     }
 
     @Test
     void testUpdateMemberRole() throws Exception {
-        TeamMemberResponse response = new TeamMemberResponse(200L, "bob", TeamRole.ADMIN);
+        TeamMemberResponse response = new TeamMemberResponse(200L, "saber", TeamRole.ADMIN);
         when(teamService.updateMemberRole(eq("alice"), eq(7L), eq(200L), any())).thenReturn(response);
 
         String requestBody = objectMapper.writeValueAsString(new TeamRoleUpdateRequest(TeamRole.ADMIN));
@@ -165,7 +165,7 @@ class TeamControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("团队角色更新成功"))
                 .andExpect(jsonPath("$.data.userId").value(200))
-                .andExpect(jsonPath("$.data.username").value("bob"))
+                .andExpect(jsonPath("$.data.username").value("saber"))
                 .andExpect(jsonPath("$.data.role").value("ADMIN"));
     }
 
@@ -261,7 +261,7 @@ class TeamControllerTest {
                 100L,
                 "alice",
                 200L,
-                "bob",
+                "saber",
                 TeamRole.MEMBER);
     }
 }
