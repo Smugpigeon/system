@@ -2,6 +2,7 @@ import { toDateTimeLocalInput } from '../utils/date'
 
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH'
+export type TaskScope = 'PERSONAL' | 'TEAM'
 
 export type Task = {
   id: number
@@ -12,6 +13,15 @@ export type Task = {
   dueAt: string | null
   createdAt: string
   updatedAt: string
+  teamId: number | null
+  teamName: string | null
+  ownerId: number
+  ownerUsername: string
+  assigneeId: number
+  assigneeUsername: string
+  canEditDetails: boolean
+  canEditStatus: boolean
+  canDelete: boolean
 }
 
 export type TaskPayload = {
@@ -22,12 +32,17 @@ export type TaskPayload = {
   dueAt: string | null
 }
 
+export type TeamTaskPayload = TaskPayload & {
+  assigneeId: number
+}
+
 export type TaskFormValues = {
   title: string
   description: string
   status: TaskStatus
   priority: TaskPriority
   dueAt: string
+  assigneeId: string
 }
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -40,6 +55,11 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   LOW: '低优先',
   MEDIUM: '中优先',
   HIGH: '高优先',
+}
+
+export const SCOPE_LABELS: Record<TaskScope, string> = {
+  PERSONAL: '个人',
+  TEAM: '团队',
 }
 
 export const STATUS_OPTIONS = [
@@ -60,6 +80,7 @@ export const emptyTaskFormValues: TaskFormValues = {
   status: 'TODO',
   priority: 'MEDIUM',
   dueAt: '',
+  assigneeId: '',
 }
 
 export function taskToFormValues(task: Task | null): TaskFormValues {
@@ -73,5 +94,6 @@ export function taskToFormValues(task: Task | null): TaskFormValues {
     status: task.status,
     priority: task.priority,
     dueAt: toDateTimeLocalInput(task.dueAt),
+    assigneeId: String(task.assigneeId),
   }
 }
