@@ -1,4 +1,4 @@
-package com.lab.taskmanager.team.controller;
+package com.lab.taskmanager.team.service;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,7 +27,6 @@ import com.lab.taskmanager.team.entity.TeamMembership;
 import com.lab.taskmanager.team.entity.TeamRole;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.repository.TeamRepository;
-import com.lab.taskmanager.team.service.TeamService;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.repository.UserRepository;
 import java.time.LocalDateTime;
