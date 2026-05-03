@@ -5,9 +5,9 @@ export type ApiResponse<T> = {
 }
 
 export type PageResponse<T> = {
-  totalRecords: number   
-  totalPages: number     
-  currPage: number       
-  size: number           
-  records: T[]           
+  totalRecords: number
+  totalPages: number
+  currPage: number
+  size: number
+  records: T[]
 }

@@ -39,7 +39,7 @@ public class TaskController {
     private final TaskService taskService;
 
     @GetMapping
-    @Operation(summary = "获取任务列表", description = "获取当前用户的所有任务，支持按智能排序")
+    @Operation(summary = "获取任务列表", description = "获取当前用户创建的个人任务，以及分配给自己的团队任务")
     public ResponseEntity<ApiResponse<PageResult<TaskResponse>>> listTasks(
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer size,
@@ -58,7 +58,7 @@ public class TaskController {
     }
 
     @PostMapping
-    @Operation(summary = "创建任务", description = "为当前用户创建一个新任务")
+    @Operation(summary = "创建个人任务", description = "为当前用户创建一个新的个人任务")
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
             @Valid @RequestBody TaskCreateRequest request,
             Principal principal) {
@@ -68,7 +68,7 @@ public class TaskController {
     }
 
     @GetMapping("/{taskId}")
-    @Operation(summary = "获取任务详情", description = "根据任务ID获取任务的详细信息")
+    @Operation(summary = "获取任务详情", description = "获取当前用户可见的个人任务或分配给自己的团队任务详情")
     public ResponseEntity<ApiResponse<TaskResponse>> getTask(
             @PathVariable Long taskId,
             Principal principal) {
@@ -77,7 +77,7 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}")
-    @Operation(summary = "更新任务", description = "根据任务ID更新任务的相关信息")
+    @Operation(summary = "更新个人任务", description = "更新当前用户拥有的个人任务。团队任务请走团队空间接口")
     public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
             @PathVariable Long taskId,
             @Valid @RequestBody TaskUpdateRequest request,
@@ -87,7 +87,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{taskId}")
-    @Operation(summary = "删除任务", description = "根据任务ID删除任务")
+    @Operation(summary = "删除个人任务", description = "删除当前用户拥有的个人任务。团队任务请走团队空间接口")
     public ResponseEntity<ApiResponse<Void>> deleteTask(
             @PathVariable Long taskId,
             Principal principal) {

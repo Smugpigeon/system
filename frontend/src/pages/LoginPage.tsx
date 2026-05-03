@@ -48,21 +48,8 @@ export function LoginPage() {
     return true
   }
 
-  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setUsername(value)
-    validateUsername(value)
-  }
-
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setPassword(value)
-    validatePassword(value)
-  }
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-
     if (!validateUsername(username) || !validatePassword(password)) {
       setError('请正确填写用户名和密码')
       return
@@ -82,44 +69,34 @@ export function LoginPage() {
     }
   }
 
-  const isFormValid = 
-    username && 
-    password && 
-    !usernameError && 
-    !passwordError
-  
   return (
     <AppShell
-      title="Ship the minimum viable collaboration system with a solid base."
-      description="先完成最小可运行版本，再给组内同学留下明确的接口、模块和协作空间。"
-      aside={
+      title="Sign in before touching any personal or team task data."
+      description="认证链路是整个系统的第一层边界。只有登录态稳定了，团队角色和任务隔离才能成立。"
+      aside={(
         <>
           <div className="aside-card">
-            <h2>为什么先做登录</h2>
-            <p>
-              认证是 Lab1 的第一层边界。没有用户身份，任务隔离与权限控制都没法成立。
-            </p>
+            <h2>Lab2 登录后</h2>
+            <p>进入个人工作台后，你可以继续查看自己的个人任务，也可以跳转到我的团队和团队空间。</p>
           </div>
           <div className="aside-card">
-            <h2>本次实现策略</h2>
-            <p>
-              用 JWT 保持前端刷新后的登录态，页面直接进入任务台，避免演示链路过长。
-            </p>
+            <h2>登录态保持</h2>
+            <p>前端会保留 JWT，页面刷新后仍维持有效登录状态；后端统一校验令牌和角色权限。</p>
           </div>
         </>
-      }
+      )}
     >
       <div className="auth-wrap">
         <AuthCard
           eyebrow="Login"
-          title="进入任务管理台"
-          description="使用用户名和密码登录。未登录用户不能访问任务页面。"
-          footer={
+          title="进入任务系统"
+          description="输入用户名和密码后进入工作台。未登录用户不能访问个人任务与团队空间。"
+          footer={(
             <div className="auth-links">
               <span>还没有账号？</span>
               <Link to="/register">去注册</Link>
             </div>
-          }
+          )}
         >
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="field">
@@ -129,14 +106,13 @@ export function LoginPage() {
                 autoComplete="username"
                 maxLength={20}
                 minLength={4}
-                pattern="[A-Za-z0-9_]{4,20}"
-                placeholder="4-20 位字母、数字或下划线"
-                required
                 value={username}
-                onChange={handleUsernameChange}
-                className={usernameError ? 'input-error' : ''}
+                onChange={(event) => {
+                  setUsername(event.target.value)
+                  validateUsername(event.target.value)
+                }}
               />
-              {usernameError && <span className="field-error">{usernameError}</span>}
+              {usernameError ? <span className="field-error">{usernameError}</span> : null}
             </div>
 
             <div className="field">
@@ -144,25 +120,21 @@ export function LoginPage() {
               <input
                 id="login-password"
                 autoComplete="current-password"
-                minLength={6}
-                placeholder="至少 6 位，且包含字母与数字"
-                required
                 type="password"
+                minLength={6}
                 value={password}
-                onChange={handlePasswordChange}
-                className={passwordError ? 'input-error' : ''}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                  validatePassword(event.target.value)
+                }}
               />
-              {passwordError && <span className="field-error">{passwordError}</span>}
+              {passwordError ? <span className="field-error">{passwordError}</span> : null}
             </div>
 
             {error ? <div className="message message--error">{error}</div> : null}
 
-            <button 
-              className="button-primary" 
-              disabled={isSubmitting || !isFormValid} 
-              type="submit"
-            >
-              {isSubmitting ? '登录中...' : '登录并进入任务台'}
+            <button className="button-primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? '登录中...' : '登录并进入工作台'}
             </button>
           </form>
         </AuthCard>

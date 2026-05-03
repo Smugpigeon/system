@@ -8,6 +8,7 @@ import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.TaskPriority;
+import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
 import java.time.LocalDateTime;
@@ -133,7 +134,17 @@ class TaskControllerTest {
                 TaskPriority.HIGH,
                 now.plusDays(1),
                 now.minusDays(1),
-                now);
+                now,
+                TaskScope.PERSONAL,
+                null,
+                null,
+                1L,
+                "alice",
+                1L,
+                "alice",
+                true,
+                true,
+                true);
     }
 
     private record TaskCreateRequestBody(

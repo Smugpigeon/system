@@ -1,41 +1,23 @@
-import { createContext, useEffect, useState } from 'react'
-import type { PropsWithChildren } from 'react'
+import { useMemo, useState, type PropsWithChildren } from 'react'
 import type { AuthPayload } from '../types/auth'
-import {
-  clearStoredAuth,
-  readStoredAuth,
-  writeStoredAuth,
-} from '../utils/storage'
-
-type AuthContextValue = {
-  auth: AuthPayload | null
-  isAuthenticated: boolean
-  setAuthSession: (payload: AuthPayload) => void
-  logout: () => void
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+import { AuthContext, type AuthContextValue } from './auth-context'
+import { clearStoredAuth, getStoredAuth, setStoredAuth } from '../utils/storage'
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [auth, setAuth] = useState<AuthPayload | null>(() => readStoredAuth())
+  const [auth, setAuth] = useState<AuthPayload | null>(() => getStoredAuth())
 
-  useEffect(() => {
-    if (auth) {
-      writeStoredAuth(auth)
-      return
-    }
-
-    clearStoredAuth()
-  }, [auth])
-
-  const value: AuthContextValue = {
+  const value = useMemo<AuthContextValue>(() => ({
     auth,
     isAuthenticated: Boolean(auth?.accessToken),
-    setAuthSession: setAuth,
-    logout: () => setAuth(null),
-  }
+    setAuthSession: (payload) => {
+      setAuth(payload)
+      setStoredAuth(payload)
+    },
+    logout: () => {
+      setAuth(null)
+      clearStoredAuth()
+    },
+  }), [auth])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-
-export { AuthContext }

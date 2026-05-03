@@ -1,25 +1,25 @@
 import type { AuthPayload } from '../types/auth'
 
-const AUTH_STORAGE_KEY = 'lab1-task-manager-auth'
+const AUTH_STORAGE_KEY = 'task-manager-auth'
 
-export function readStoredAuth() {
-  const rawValue = localStorage.getItem(AUTH_STORAGE_KEY)
-  if (!rawValue) {
+export function getStoredAuth(): AuthPayload | null {
+  const raw = window.localStorage.getItem(AUTH_STORAGE_KEY)
+  if (!raw) {
     return null
   }
 
   try {
-    return JSON.parse(rawValue) as AuthPayload
+    return JSON.parse(raw) as AuthPayload
   } catch {
-    localStorage.removeItem(AUTH_STORAGE_KEY)
+    window.localStorage.removeItem(AUTH_STORAGE_KEY)
     return null
   }
 }
 
-export function writeStoredAuth(payload: AuthPayload) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
+export function setStoredAuth(payload: AuthPayload) {
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload))
 }
 
 export function clearStoredAuth() {
-  localStorage.removeItem(AUTH_STORAGE_KEY)
+  window.localStorage.removeItem(AUTH_STORAGE_KEY)
 }

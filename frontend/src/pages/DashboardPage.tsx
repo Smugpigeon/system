@@ -2,9 +2,18 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react'
-import { createTask, deleteTask, fetchTasks, updateTask, type TaskQueryParams } from '../api/tasks'
+import { useNavigate } from 'react-router-dom'
+import {
+  createTask,
+  deleteTask,
+  fetchTasks,
+  updateTask,
+  updateTeamTaskStatus,
+  type TaskQueryParams,
+} from '../api/tasks'
 import { getErrorMessage } from '../api/http'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
@@ -13,9 +22,10 @@ import { Toast } from '../components/Toast'
 import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
 import type { Task, TaskFormValues, TaskPayload } from '../types/task'
-import { emptyTaskFormValues, taskToFormValues } from '../types/task'
+import { taskToFormValues } from '../types/task'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
   const { auth, logout } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
@@ -24,80 +34,82 @@ export function DashboardPage() {
   const [loadingError, setLoadingError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(10)
   const [totalPages, setTotalPages] = useState(0)
   const [totalRecords, setTotalRecords] = useState(0)
-  
   const [filters, setFilters] = useState<FilterOptions>({
     status: 'ALL',
     priority: 'ALL',
-    keyword: ''
+    keyword: '',
   })
-  
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
 
   const loadTasks = useCallback(async () => {
     try {
       setLoading(true)
       setLoadingError('')
-      
+
       const params: TaskQueryParams = {
         page: currentPage,
         size: pageSize,
-        sortBy: 'updatedAt'
+        sortBy: 'updatedAt',
       }
-      
+
       if (filters.status !== 'ALL') {
         params.status = filters.status
       }
       if (filters.priority !== 'ALL') {
         params.priority = filters.priority
       }
-      
+
       const pageData = await fetchTasks(params)
-      
-      startTransition(() => { 
+
+      startTransition(() => {
         setTotalPages(pageData.totalPages)
         setTotalRecords(pageData.totalRecords)
-        
+
         let filteredRecords = pageData.records
         if (filters.keyword.trim()) {
           const keyword = filters.keyword.toLowerCase()
-          filteredRecords = pageData.records.filter(task => 
-            task.title.toLowerCase().includes(keyword) ||
-            (task.description && task.description.toLowerCase().includes(keyword))
+          filteredRecords = pageData.records.filter((task) =>
+            task.title.toLowerCase().includes(keyword)
+            || (task.description && task.description.toLowerCase().includes(keyword))
+            || (task.teamName && task.teamName.toLowerCase().includes(keyword))
+            || task.assigneeUsername.toLowerCase().includes(keyword),
           )
         }
-        
+
         setTasks(filteredRecords)
-        
+
         if (!filteredRecords.length) {
           setSelectedTaskId(null)
           setFormMode('create')
-        } else {
-          if (formMode === 'create' && selectedTaskId === null) {
-            return
-          }
-          const stillExists = filteredRecords.some(t => t.id === selectedTaskId)
-          if (!stillExists || selectedTaskId === null) {
-            setSelectedTaskId(filteredRecords[0].id)
-            setFormMode('edit')
-          }
+          return
+        }
+
+        if (formMode === 'create' && selectedTaskId === null) {
+          return
+        }
+
+        const stillExists = filteredRecords.some((task) => task.id === selectedTaskId)
+        if (!stillExists || selectedTaskId === null) {
+          setSelectedTaskId(filteredRecords[0].id)
+          setFormMode('edit')
         }
       })
     } catch (error) {
-      setLoadingError(getErrorMessage(error))
-      setToast({ message: getErrorMessage(error), type: 'error' })
+      const message = getErrorMessage(error)
+      setLoadingError(message)
+      setToast({ message, type: 'error' })
     } finally {
       setLoading(false)
     }
-  }, [currentPage, filters.status, filters.priority, filters.keyword, pageSize, selectedTaskId, formMode])
+  }, [currentPage, filters.keyword, filters.priority, filters.status, pageSize, selectedTaskId, formMode])
 
   useEffect(() => {
     loadTasks()
-  }, [currentPage, filters.status, filters.priority, loadTasks])
+  }, [loadTasks])
 
   const handleRefresh = () => {
     loadTasks()
@@ -105,7 +117,7 @@ export function DashboardPage() {
 
   const handleFilterChange = (newFilters: FilterOptions) => {
     setFilters(newFilters)
-    setCurrentPage(1) 
+    setCurrentPage(1)
   }
 
   const handleOpenCreate = () => {
@@ -132,278 +144,269 @@ export function DashboardPage() {
     try {
       setIsSubmitting(true)
       setSubmitError('')
+
       if (formMode === 'create') {
         await createTask(payload)
-        setToast({ message: '任务创建成功！', type: 'success' })
+        setToast({ message: '个人任务创建成功', type: 'success' })
         setCurrentPage(1)
         await loadTasks()
         return
       }
 
-      if (!selectedTaskId) {
+      const selectedTask = tasks.find((task) => task.id === selectedTaskId)
+      if (!selectedTask) {
         setSubmitError('未选中任务，无法保存')
         return
       }
 
-      await updateTask(selectedTaskId, payload)
-      setToast({ message: '任务更新成功！', type: 'success' })
+      if (selectedTask.scope === 'PERSONAL') {
+        await updateTask(selectedTask.id, payload)
+        setToast({ message: '个人任务更新成功', type: 'success' })
+      } else if (selectedTask.teamId && selectedTask.canEditStatus) {
+        await updateTeamTaskStatus(selectedTask.teamId, selectedTask.id, values.status)
+        setToast({ message: '团队任务状态已更新', type: 'success' })
+      } else {
+        setSubmitError('当前任务不允许在个人工作台直接修改')
+        return
+      }
+
       await loadTasks()
     } catch (error) {
-      setSubmitError(getErrorMessage(error))
-      setToast({ message: getErrorMessage(error), type: 'error' })
+      const message = getErrorMessage(error)
+      setSubmitError(message)
+      setToast({ message, type: 'error' })
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!selectedTaskId) return
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId)
+    if (!selectedTask || selectedTask.scope !== 'PERSONAL') {
+      setSubmitError('团队任务请在团队空间中删除')
+      return
+    }
 
-    const confirmed = window.confirm('确认删除当前任务吗？该操作不可撤销。')
-    if (!confirmed) return
+    const confirmed = window.confirm('确认删除当前个人任务吗？该操作不可撤销。')
+    if (!confirmed) {
+      return
+    }
 
     try {
       setIsSubmitting(true)
       setSubmitError('')
-      await deleteTask(selectedTaskId)
-      setToast({ message: '任务已删除', type: 'success' })
+      await deleteTask(selectedTask.id)
+      setToast({ message: '个人任务已删除', type: 'success' })
       await loadTasks()
     } catch (error) {
-      setSubmitError(getErrorMessage(error))
-      setToast({ message: getErrorMessage(error), type: 'error' })
+      const message = getErrorMessage(error)
+      setSubmitError(message)
+      setToast({ message, type: 'error' })
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+  const selectedTaskHint = useMemo(() => {
+    if (!selectedTask) {
+      return ''
+    }
+    if (selectedTask.scope === 'TEAM') {
+      if (selectedTask.canEditStatus) {
+        return '这是团队任务。在个人工作台中你只能更新状态；如需调整标题、描述、负责人，请进入团队空间。'
+      }
+      return '这是团队任务。当前用户在个人工作台中仅可查看详情，请进入团队空间或联系管理员处理。'
+    }
+    return ''
+  }, [selectedTask])
 
   const summary = {
     total: totalRecords,
-    pending: tasks.filter((task) => task.status !== 'DONE').length,
+    personal: tasks.filter((task) => task.scope === 'PERSONAL').length,
+    assignedTeam: tasks.filter((task) => task.scope === 'TEAM').length,
     done: tasks.filter((task) => task.status === 'DONE').length,
   }
 
   return (
     <AppShell
-      title="Forge personal work into a clean, explainable Lab1 demo."
-      description="这个版本只做个人任务与认证，但已经把后续团队协作、权限控制和任务依赖的扩展位置留出来。"
-      aside={
+      title="Keep personal work and team work visible in one dependable dashboard."
+      description="Lab2 的个人工作台同时展示自己创建的个人任务，以及分配给自己的团队任务。个人任务可完整管理，团队任务会按权限限制操作。"
+      aside={(
         <>
           <div className="aside-card">
-            <h2>当前验收重点</h2>
+            <h2>当前工作台范围</h2>
             <ul className="checkpoint-list">
               <li className="checkpoint-item">
-                <span className="checkpoint-title">认证闭环</span>
+                <span className="checkpoint-title">个人任务</span>
                 <span className="checkpoint-copy">
-                  注册、登录、令牌保持、未登录访问拦截。
+                  当前用户自己创建的任务，支持完整增删改查。
                 </span>
               </li>
               <li className="checkpoint-item">
-                <span className="checkpoint-title">任务闭环</span>
+                <span className="checkpoint-title">团队任务</span>
                 <span className="checkpoint-copy">
-                  个人任务创建、修改、删除、详情与数据隔离。
-                </span>
-              </li>
-              <li className="checkpoint-item">
-                <span className="checkpoint-title">可扩展结构</span>
-                <span className="checkpoint-copy">
-                  前后端都按模块拆分，后续同学不必重构基础层。
+                  当前用户被分配到的团队任务，按角色控制可编辑范围。
                 </span>
               </li>
             </ul>
           </div>
-
           <div className="aside-card">
-            <h2>后续可继续接入</h2>
-            <ul className="roadmap-list">
-              <li className="roadmap-item">
-                <span className="roadmap-title">团队与项目空间</span>
-                <span className="roadmap-copy">
-                  在 `backend/task` 基础上继续扩展 project、member、role。
-                </span>
-              </li>
-              <li className="roadmap-item">
-                <span className="roadmap-title">权限与审计日志</span>
-                <span className="roadmap-copy">
-                  复用现有安全链路，增加角色判断和操作记录表。
-                </span>
-              </li>
-              <li className="roadmap-item">
-                <span className="roadmap-title">任务依赖与评论</span>
-                <span className="roadmap-copy">
-                  前端列表和详情面板已经预留出继续加组件的空间。
-                </span>
-              </li>
-            </ul>
+            <h2>切到团队空间时</h2>
+            <p>
+              Owner 可管理成员与角色，Admin 可创建、编辑、删除和重新分配团队任务，Member 只能浏览任务并修改分配给自己的任务状态。
+            </p>
           </div>
         </>
-      }
+      )}
     >
       <header className="main-header">
         <div>
-          <p className="eyebrow">Authenticated workspace</p>
-          <h1>{auth?.username} 的个人任务台</h1>
+          <p className="eyebrow">Personal Dashboard / Lab2</p>
+          <h1>{auth?.username} 的工作台</h1>
           <p>
-            用这个页面直接演示 Lab1 的核心流程：登录成功后进入任务管理界面，
-            任务只归当前用户所有，刷新后登录状态仍然有效。
+            在这里统一查看个人任务和分配给你的团队任务。团队协作管理入口放在独立团队空间，避免权限判断散落在同一页面里。
           </p>
         </div>
         <div className="toolbar">
-          <button className="button-primary" type="button" onClick={handleOpenCreate}>
-            新建任务
+          <button className="button-ghost" type="button" onClick={() => navigate('/teams')}>
+            我的团队
           </button>
-          <button
-            className="button-ghost"
-            type="button"
-            onClick={handleRefresh}
-          >
+          <button className="button-primary" type="button" onClick={handleOpenCreate}>
+            新建个人任务
+          </button>
+          <button className="button-ghost" type="button" onClick={handleRefresh}>
             刷新列表
           </button>
-          <button className="button-secondary" type="button" onClick={logout}>
+          <button className="button-ghost" type="button" onClick={logout}>
             退出登录
           </button>
         </div>
       </header>
 
-      <section className="summary-strip">
+      <section className="summary-grid">
         <article className="summary-card">
-          <h3>全部任务</h3>
-          <div className="summary-number">{summary.total}</div>
-          <p className="summary-note">覆盖新增、编辑、详情与删除的完整流程。</p>
+          <h3>总任务数</h3>
+          <strong>{summary.total}</strong>
+          <span>当前页已加载的总任务记录</span>
         </article>
         <article className="summary-card">
-          <h3>待处理</h3>
-          <div className="summary-number">{summary.pending}</div>
-          <p className="summary-note">用于演示任务状态流转与优先级区分。</p>
+          <h3>个人任务</h3>
+          <strong>{summary.personal}</strong>
+          <span>由当前用户创建</span>
+        </article>
+        <article className="summary-card">
+          <h3>团队任务</h3>
+          <strong>{summary.assignedTeam}</strong>
+          <span>当前用户被分配到的团队任务</span>
         </article>
         <article className="summary-card">
           <h3>已完成</h3>
-          <div className="summary-number">{summary.done}</div>
-          <p className="summary-note">展示个人任务的完成情况与更新时间。</p>
+          <strong>{summary.done}</strong>
+          <span>状态为 DONE 的任务</span>
         </article>
       </section>
 
-      <section className="filters-section">
-        <TaskFilters
-          onFilterChange={handleFilterChange}
-          totalCount={totalRecords}
-          filteredCount={tasks.length}
-        />
-      </section>
-      
-      <section className="content-grid">
-        <article className="panel">
-          <header className="panel-header">
-            <p className="eyebrow">Task list</p>
-            <h2 className="panel-title">我的任务</h2>
-            <p className="panel-subtitle">
-              每条任务都来自当前登录用户，天然满足数据隔离要求。
-            </p>
-          </header>
+      <TaskFilters
+        onFilterChange={handleFilterChange}
+        totalCount={totalRecords}
+        filteredCount={tasks.length}
+      />
 
+      {loadingError ? <div className="message message--error">{loadingError}</div> : null}
+
+      <section className="workspace-grid">
+        <div className="panel panel-stack">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Task Stream</p>
+              <h2>当前任务</h2>
+            </div>
+            <div className="pagination">
+              <button
+                className="button-ghost"
+                type="button"
+                disabled={currentPage <= 1 || loading}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              >
+                上一页
+              </button>
+              <span>
+                第 {currentPage} / {Math.max(totalPages, 1)} 页
+              </span>
+              <button
+                className="button-ghost"
+                type="button"
+                disabled={currentPage >= totalPages || totalPages === 0 || loading}
+                onClick={() => setCurrentPage((page) => page + 1)}
+              >
+                下一页
+              </button>
+            </div>
+          </div>
           {loading ? (
-            <div className="message message--note">正在加载任务列表...</div>
-          ) : loadingError ? (
-            <div className="message message--error">{loadingError}</div>
+            <div className="empty-state">
+              <p>任务列表加载中...</p>
+            </div>
           ) : (
-            <>
-              <TaskList
-                selectedTaskId={selectedTaskId}
-                tasks={tasks}
-                onCreate={handleOpenCreate}
-                onSelect={handleSelectTask}
-              />
-              
-              {/* 分页组件 */}
-              {totalPages > 1 && (
-                <div style={{ 
-                  marginTop: '1rem', 
-                  display: 'flex', 
-                  gap: '0.5rem', 
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}>
-                  <button 
-                    className="button-ghost"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(p => p - 1)}
-                  >
-                    上一页
-                  </button>
-                  <span style={{ padding: '0 1rem' }}>
-                    第 {currentPage} / {totalPages} 页
-                  </span>
-                  <button 
-                    className="button-ghost"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage(p => p + 1)}
-                  >
-                    下一页
-                  </button>
-                </div>
-              )}
-            </>
+            <TaskList
+              selectedTaskId={selectedTaskId}
+              tasks={tasks}
+              onCreate={handleOpenCreate}
+              onSelect={handleSelectTask}
+            />
           )}
-        </article>
+        </div>
 
-        <article className="panel panel-stack">
-          <header className="panel-header">
-            <p className="eyebrow">
-              {formMode === 'create' ? 'Create mode' : 'Task detail'}
-            </p>
-            <h2 className="panel-title">
-              {formMode === 'create' ? '新建任务' : selectedTask?.title ?? '任务详情'}
-            </h2>
-            <p className="panel-subtitle">
-              {formMode === 'create'
-                ? '先把 Lab1 的核心 CRUD 跑通，后面再接入指派、评论、依赖关系。'
-                : '右侧表单直接承担查看详情与修改任务的职责，演示时路径更短。'}
-            </p>
-          </header>
-
+        <div className="panel panel-stack">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">{formMode === 'create' ? 'Create Personal Task' : 'Task Detail'}</p>
+              <h2>{formMode === 'create' ? '新建个人任务' : '任务详情'}</h2>
+            </div>
+            {selectedTask?.scope === 'TEAM' && selectedTask.teamId ? (
+              <button
+                className="button-ghost"
+                type="button"
+                onClick={() => navigate(`/teams/${selectedTask.teamId}`)}
+              >
+                前往团队空间
+              </button>
+            ) : null}
+          </div>
           <TaskForm
-            key={formMode === 'create' ? 'create' : selectedTaskId}
             mode={formMode}
-            initialValues={
-              formMode === 'create'
-                ? { ...emptyTaskFormValues }
-                : taskToFormValues(selectedTask)
-            }
+            initialValues={taskToFormValues(selectedTask)}
             error={submitError}
             isSubmitting={isSubmitting}
-            onCancelCreate={() => setSubmitError('')}
-            onDelete={formMode === 'edit' ? handleDelete : undefined}
+            onCancelCreate={() => {
+              setFormMode('create')
+              setSelectedTaskId(null)
+            }}
+            onDelete={selectedTask?.scope === 'PERSONAL' ? handleDelete : undefined}
             onSubmit={handleSubmit}
+            allowDetailEditing={formMode === 'create' || selectedTask?.scope === 'PERSONAL'}
+            allowStatusEditing={formMode === 'create' || Boolean(selectedTask?.canEditStatus)}
+            allowDelete={selectedTask?.scope === 'PERSONAL'}
+            readOnlyHint={selectedTaskHint}
+            submitLabel={
+              formMode === 'create'
+                ? '创建个人任务'
+                : selectedTask?.scope === 'TEAM'
+                  ? '更新任务状态'
+                  : '保存修改'
+            }
           />
-
-          <section className="panel-note">
-            <h3>给队友的扩展入口</h3>
-            <ul className="detail-list">
-              <li className="detail-item">
-                <span className="detail-title">前端可继续拆分列表筛选与分页</span>
-                <span className="detail-copy">
-                  当前页面已按 `pages / components / api / context / types` 拆开。
-                </span>
-              </li>
-              <li className="detail-item">
-                <span className="detail-title">后端可继续补 service、test 与更多 DTO</span>
-                <span className="detail-copy">
-                  `auth` 和 `task` 模块已经分包，不会挤成单个 God class。
-                </span>
-              </li>
-            </ul>
-          </section>
-        </article>
+        </div>
       </section>
-      
-      {toast && (
+
+      {toast ? (
         <Toast
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
         />
-      )}
+      ) : null}
     </AppShell>
   )
 }
