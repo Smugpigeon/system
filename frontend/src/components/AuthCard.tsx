@@ -15,14 +15,12 @@ export function AuthCard({
   children,
 }: AuthCardProps) {
   return (
-    <section className="auth-card fade-in">
-      <header className="auth-card__header">
-        <p className="eyebrow">{eyebrow}</p>
-        <h2>{title}</h2>
-        <p>{description}</p>
-      </header>
+    <section className="auth-card">
+      <p className="auth-card__eyebrow">{eyebrow}</p>
+      <h2 className="auth-card__title">{title}</h2>
+      <p className="auth-card__description">{description}</p>
       {children}
-      {footer}
+      {footer ? <div className="auth-card__footer">{footer}</div> : null}
     </section>
   )
 }

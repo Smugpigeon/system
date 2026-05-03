@@ -3,6 +3,7 @@ package com.lab.taskmanager.team.service;
 import com.lab.taskmanager.common.exception.BusinessException;
 import com.lab.taskmanager.common.exception.ForbiddenOperationException;
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
+import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.team.dto.TeamCreateRequest;
 import com.lab.taskmanager.team.dto.TeamDetailResponse;
 import com.lab.taskmanager.team.dto.TeamMemberAddRequest;
@@ -16,30 +17,34 @@ import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.repository.TeamRepository;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.service.UserService;
+import jakarta.validation.constraints.NotNull;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
 @Service
 @RequiredArgsConstructor
+@Validated
 public class TeamService {
 
     private final TeamRepository teamRepository;
     private final TeamMembershipRepository teamMembershipRepository;
+    private final TaskRepository taskRepository;
     private final TeamAuthorizationService teamAuthorizationService;
     private final UserService userService;
 
     /**
-     * Create a new team and register the creator as team owner.
+     * Create a new team and automatically register the creator as OWNER.
      *
      * @param username authenticated username
-     * @param request team creation payload
-     * @return summary of the created team
+     * @param request create team request
+     * @return persisted team summary for the creator
      */
     @Transactional
-    public TeamSummaryResponse createTeam(String username, TeamCreateRequest request) {
+    public TeamSummaryResponse createTeam(@NotNull String username, @NotNull TeamCreateRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
 
         Team team = new Team();
@@ -57,13 +62,13 @@ public class TeamService {
     }
 
     /**
-     * List all teams joined by the current user.
+     * List all teams visible to the current user.
      *
      * @param username authenticated username
-     * @return sorted team summaries visible to the current user
+     * @return sorted team summaries for the current user
      */
     @Transactional(readOnly = true)
-    public List<TeamSummaryResponse> listTeams(String username) {
+    public List<TeamSummaryResponse> listTeams(@NotNull String username) {
         User currentUser = userService.findByUsernameOrThrow(username);
         return teamMembershipRepository.findAllByUserId(currentUser.getId())
                 .stream()
@@ -73,17 +78,16 @@ public class TeamService {
     }
 
     /**
-     * Load one team together with current user's role and the full member list.
+     * Fetch one team and its members after membership verification.
      *
      * @param username authenticated username
-     * @param teamId target team id
-     * @return team detail payload
+     * @param teamId target team identifier
+     * @return full team detail with current user's role and member list
      */
     @Transactional(readOnly = true)
-    public TeamDetailResponse getTeamDetail(String username, Long teamId) {
+    public TeamDetailResponse getTeamDetail(@NotNull String username, @NotNull Long teamId) {
         User currentUser = userService.findByUsernameOrThrow(username);
         TeamMembership currentMembership = teamAuthorizationService.requireMembership(teamId, currentUser.getId());
-
         List<TeamMemberResponse> members = teamMembershipRepository.findAllByTeamId(teamId)
                 .stream()
                 .sorted(Comparator
@@ -97,15 +101,18 @@ public class TeamService {
     }
 
     /**
-     * Add one new member into the current team. Only owner can do this.
+     * Add a new member into the target team. Only Owner can call this method.
      *
      * @param username authenticated username
-     * @param teamId target team id
-     * @param request member add payload
-     * @return created member payload
+     * @param teamId target team identifier
+     * @param request target member payload
+     * @return created membership view
      */
     @Transactional
-    public TeamMemberResponse addMember(String username, Long teamId, TeamMemberAddRequest request) {
+    public TeamMemberResponse addMember(
+            @NotNull String username,
+            @NotNull Long teamId,
+            @NotNull TeamMemberAddRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
         TeamMembership ownerMembership = teamAuthorizationService.requireOwner(teamId, currentUser.getId());
         User targetUser = userService.findByUsernameOrThrow(request.username().trim());
@@ -126,20 +133,20 @@ public class TeamService {
     }
 
     /**
-     * Switch one team member between Member and Admin. Owner role is immutable.
+     * Update one member's team role between Member and Admin. Owner role is immutable here.
      *
      * @param username authenticated username
-     * @param teamId target team id
-     * @param targetUserId target user id
+     * @param teamId target team identifier
+     * @param targetUserId user to update
      * @param request desired role payload
-     * @return updated member payload
+     * @return updated membership view
      */
     @Transactional
     public TeamMemberResponse updateMemberRole(
-            String username,
-            Long teamId,
-            Long targetUserId,
-            TeamRoleUpdateRequest request) {
+            @NotNull String username,
+            @NotNull Long teamId,
+            @NotNull Long targetUserId,
+            @NotNull TeamRoleUpdateRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
         teamAuthorizationService.requireOwner(teamId, currentUser.getId());
 
@@ -165,7 +172,7 @@ public class TeamService {
                 team.getName(),
                 membership.getRole(),
                 Math.toIntExact(teamMembershipRepository.countByTeamId(team.getId())),
-                0);
+                Math.toIntExact(taskRepository.countByTeamId(team.getId())));
     }
 
     private TeamMemberResponse toMemberResponse(TeamMembership membership) {

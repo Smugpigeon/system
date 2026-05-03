@@ -3,19 +3,18 @@ import type { ApiResponse, PageResponse } from '../types/api'
 import type { Task, TaskPayload, TeamTaskPayload, TaskStatus } from '../types/task'
 
 export type TaskQueryParams = {
-  page?: number      
-  size?: number      
-  status?: string    
-  priority?: string  
-  sortBy?: string  
-  keyword?: string  
+  page?: number
+  size?: number
+  status?: string
+  priority?: string
+  sortBy?: string
 }
 
 export async function fetchTasks(params?: TaskQueryParams) {
   const response = await http.get<ApiResponse<PageResponse<Task>>>('/tasks', {
-    params
+    params,
   })
-  return response.data.data  // 返回 PageResponse<Task>
+  return response.data.data
 }
 
 export async function createTask(payload: TaskPayload) {
@@ -32,23 +31,10 @@ export async function deleteTask(taskId: number) {
   await http.delete(`/tasks/${taskId}`)
 }
 
-export type TeamTaskQueryParams = {
-  page?: number
-  size?: number
-  status?: string
-  priority?: string
-  keyword?: string
-  sortBy?: string
-}
-
-export async function fetchTeamTasks(
-  teamId: number,
-  params?: TeamTaskQueryParams,
-) {
-  const response = await http.get<ApiResponse<PageResponse<Task>>>(
-    `/teams/${teamId}/tasks`,
-    { params },
-  )
+export async function fetchTeamTasks(teamId: number, params?: TaskQueryParams) {
+  const response = await http.get<ApiResponse<PageResponse<Task>>>(`/teams/${teamId}/tasks`, {
+    params,
+  })
   return response.data.data
 }
 
@@ -62,24 +48,16 @@ export async function createTeamTask(teamId: number, payload: TeamTaskPayload) {
   return response.data.data
 }
 
-export async function updateTeamTask(taskId: number, payload: TeamTaskPayload) {
-  const response = await http.put<ApiResponse<Task>>(`/tasks/${taskId}`, payload)
+export async function updateTeamTask(teamId: number, taskId: number, payload: TeamTaskPayload) {
+  const response = await http.put<ApiResponse<Task>>(`/teams/${teamId}/tasks/${taskId}`, payload)
   return response.data.data
 }
 
-export async function updateTeamTaskStatus(taskId: number, payload: TaskPayload) {
-  const response = await http.put<ApiResponse<Task>>(`/tasks/${taskId}`, payload)
+export async function updateTeamTaskStatus(teamId: number, taskId: number, status: TaskStatus) {
+  const response = await http.patch<ApiResponse<Task>>(`/teams/${teamId}/tasks/${taskId}/status`, { status })
   return response.data.data
 }
 
-export async function deleteTeamTask(taskId: number) {
-  await http.delete(`/tasks/${taskId}`)
-}
-
-export async function assignTeamTask(teamId: number, taskId: number, assigneeId: number) {
-  const response = await http.put<ApiResponse<Task>>(
-    `/teams/${teamId}/tasks/${taskId}/assign`,
-    { assigneeId }
-  )
-  return response.data.data
+export async function deleteTeamTask(teamId: number, taskId: number) {
+  await http.delete(`/teams/${teamId}/tasks/${taskId}`)
 }

@@ -3,12 +3,12 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 
 export function ProtectedRoute({ children }: PropsWithChildren) {
-  const { isAuthenticated } = useAuth()
   const location = useLocation()
+  const { isAuthenticated } = useAuth()
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 
-  return children
+  return <>{children}</>
 }

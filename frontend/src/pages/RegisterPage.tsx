@@ -53,23 +53,11 @@ export function RegisterPage() {
     return true
   }
 
-  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setUsername(value)
-    validateUsername(value)
-  }
-
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setPassword(value)
-    validatePassword(value)
-  }
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const isUsernameValid = validateUsername(username)
     const isPasswordValid = validatePassword(password)
-    
+
     if (!isUsernameValid || !isPasswordValid) {
       setError('请正确填写所有字段')
       return
@@ -88,40 +76,34 @@ export function RegisterPage() {
     }
   }
 
-  const isFormValid = 
-    username && 
-    password && 
-    !usernameError && 
-    !passwordError
-  
   return (
     <AppShell
-      title="Start with clean accounts, then grow toward team collaboration."
-      description=""
-      aside={
+      title="Create clean accounts first, then build collaboration on top of them."
+      description="注册时先把用户名、密码约束和落库安全性做好，这是后续团队角色权限控制的基础。"
+      aside={(
         <>
           <div className="aside-card">
-            <h2></h2>
-            <p></p>
+            <h2>注册规则</h2>
+            <p>用户名限定 4-20 位字母/数字/下划线，密码至少 6 位，且必须同时包含字母和数字。</p>
           </div>
           <div className="aside-card">
-            <h2></h2>
-            <p></p>
+            <h2>密码安全</h2>
+            <p>密码不会明文存储，后端只保存哈希值。注册完成后会自动登录，方便直接演示系统功能。</p>
           </div>
         </>
-      }
+      )}
     >
       <div className="auth-wrap">
         <AuthCard
           eyebrow="Register"
-          title="先创建一个可登录的账号"
-          description="注册成功后自动登录，方便你直接进入任务管理界面演示。"
-          footer={
+          title="创建新账号"
+          description="注册成功后自动进入工作台，方便继续验证个人任务与团队空间能力。"
+          footer={(
             <div className="auth-links">
               <span>已经有账号？</span>
               <Link to="/login">返回登录</Link>
             </div>
-          }
+          )}
         >
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="field">
@@ -131,14 +113,13 @@ export function RegisterPage() {
                 autoComplete="username"
                 maxLength={20}
                 minLength={4}
-                pattern="[A-Za-z0-9_]{4,20}"
-                placeholder="4-20 位字母、数字或下划线,例如：lab1_team01"
-                required
                 value={username}
-                onChange={handleUsernameChange}
-                className={usernameError ? 'input-error' : ''}
+                onChange={(event) => {
+                  setUsername(event.target.value)
+                  validateUsername(event.target.value)
+                }}
               />
-              {usernameError && <span className="field-error">{usernameError}</span>}
+              {usernameError ? <span className="field-error">{usernameError}</span> : null}
             </div>
 
             <div className="field">
@@ -146,25 +127,21 @@ export function RegisterPage() {
               <input
                 id="register-password"
                 autoComplete="new-password"
-                minLength={6}
-                placeholder="至少 6 位，且包含字母与数字"
-                required
                 type="password"
+                minLength={6}
                 value={password}
-                onChange={handlePasswordChange}
-                className={passwordError ? 'input-error' : ''}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                  validatePassword(event.target.value)
+                }}
               />
-              {passwordError && <span className="field-error">{passwordError}</span>}
+              {passwordError ? <span className="field-error">{passwordError}</span> : null}
             </div>
 
             {error ? <div className="message message--error">{error}</div> : null}
 
-            <button 
-              className="button-primary" 
-              disabled={isSubmitting || !isFormValid} 
-              type="submit"
-            >
-              {isSubmitting ? '注册中...' : '注册并进入任务台'}
+            <button className="button-primary" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? '注册中...' : '注册并进入工作台'}
             </button>
           </form>
         </AuthCard>
