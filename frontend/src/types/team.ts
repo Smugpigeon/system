@@ -1,11 +1,5 @@
 export type TeamRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 
-export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
-  OWNER: '拥有者',
-  ADMIN: '管理员',
-  MEMBER: '成员',
-}
-
 export type TeamSummary = {
   id: number
   name: string
@@ -27,15 +21,8 @@ export type TeamDetail = {
   members: TeamMember[]
 }
 
-export type TeamCreateRequest = {
-  name: string
-}
-
-export type TeamMemberAddRequest = {
-  username: string
-  role: TeamRole
-}
-
-export type TeamRoleUpdateRequest = {
-  role: TeamRole
+export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  MEMBER: 'Member',
 }

@@ -13,6 +13,7 @@ export type Task = {
   dueAt: string | null
   createdAt: string
   updatedAt: string
+  scope: TaskScope
   teamId: number | null
   teamName: string | null
   ownerId: number

@@ -2,9 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LoginPage } from '../pages/LoginPage'
-import { MyTeamsPage } from '../pages/MyTeamsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { RegisterPage } from '../pages/RegisterPage'
+import { TeamsPage } from '../pages/TeamsPage'
 import { TeamWorkspacePage } from '../pages/TeamWorkspacePage'
 
 export function AppRoutes() {
@@ -15,19 +15,19 @@ export function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route
         path="/tasks"
-        element={
+        element={(
           <ProtectedRoute>
             <DashboardPage />
           </ProtectedRoute>
-        }
+        )}
       />
       <Route
         path="/teams"
-        element={
+        element={(
           <ProtectedRoute>
-            <MyTeamsPage />
+            <TeamsPage />
           </ProtectedRoute>
-        }
+        )}
       />
       <Route
         path="/teams/:teamId"

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { addTeamMember, fetchTeamDetail, updateTeamMemberRole } from '../api/team'
+import { addTeamMember, fetchTeamDetail, updateTeamMemberRole } from '../api/teams'
 import {
   createTeamTask,
   deleteTeamTask,
   fetchTeamTasks,
   updateTeamTask,
   updateTeamTaskStatus,
-  assignTeamTask,
   type TaskQueryParams,
 } from '../api/tasks'
 import { getErrorMessage } from '../api/http'
@@ -24,7 +23,7 @@ import { TEAM_ROLE_LABELS, type TeamDetail, type TeamRole } from '../types/team'
 export function TeamWorkspacePage() {
   const navigate = useNavigate()
   const { teamId } = useParams()
-  const { auth, logout } = useAuth()
+  const { logout } = useAuth()
   const parsedTeamId = Number(teamId)
   const [team, setTeam] = useState<TeamDetail | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -47,38 +46,6 @@ export function TeamWorkspacePage() {
     keyword: '',
   })
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
-
-  const getTaskPermissions = useCallback((task: Task) => {
-    const currentUserId = auth?.userId
-    const currentUserRole = team?.currentUserRole
-
-    if (!task.teamId) {
-      return {
-        canEditDetails: task.ownerId === currentUserId,
-        canEditStatus: task.ownerId === currentUserId,
-        canDelete: task.ownerId === currentUserId
-      }
-    }
-
-    if (currentUserRole === 'OWNER' || currentUserRole === 'ADMIN') {
-      return {
-        canEditDetails: true,
-        canEditStatus: true,
-        canDelete: true
-      }
-    }
-
-    if (currentUserRole === 'MEMBER') {
-      const isAssignee = task.assigneeId === currentUserId
-      return {
-        canEditDetails: false,
-        canEditStatus: isAssignee,
-        canDelete: false
-      }
-    }
-
-    return { canEditDetails: false, canEditStatus: false, canDelete: false }
-  }, [auth?.userId, team?.currentUserRole])
 
   const loadWorkspace = useCallback(async () => {
     if (!Number.isFinite(parsedTeamId) || parsedTeamId <= 0) {
@@ -120,11 +87,7 @@ export function TeamWorkspacePage() {
       }
 
       setTeam(detail)
-      const tasksWithPermissions = filteredRecords.map(task => ({
-        ...task,
-        ...getTaskPermissions(task)
-      }))
-      setTasks(tasksWithPermissions)
+      setTasks(filteredRecords)
       setTotalPages(taskPage.totalPages)
       setTotalRecords(taskPage.totalRecords)
 
@@ -202,13 +165,10 @@ export function TeamWorkspacePage() {
       }
 
       if (selectedTask.canEditDetails) {
-        await updateTeamTask(selectedTask.id, payload)
-        if (payload.assigneeId !== selectedTask.assigneeId) {
-          await assignTeamTask(team.id, selectedTask.id, payload.assigneeId)
-        }
+        await updateTeamTask(team.id, selectedTask.id, payload)
         setToast({ message: '团队任务更新成功', type: 'success' })
       } else if (selectedTask.canEditStatus) {
-        await updateTeamTaskStatus(selectedTask.id, values)
+        await updateTeamTaskStatus(team.id, selectedTask.id, values.status)
         setToast({ message: '团队任务状态已更新', type: 'success' })
       } else {
         setSubmitError('当前角色无权修改该团队任务')
@@ -240,7 +200,7 @@ export function TeamWorkspacePage() {
     try {
       setIsSubmitting(true)
       setSubmitError('')
-      await deleteTeamTask(selectedTask.id)
+      await deleteTeamTask(team.id, selectedTask.id)
       setToast({ message: '团队任务已删除', type: 'success' })
       await loadWorkspace()
     } catch (error) {
@@ -265,7 +225,7 @@ export function TeamWorkspacePage() {
     try {
       setIsUpdatingMembers(true)
       setMemberError('')
-      await addTeamMember(team.id, { username: memberUsername.trim(), role: 'MEMBER' })
+      await addTeamMember(team.id, memberUsername.trim())
       setMemberUsername('')
       setToast({ message: '团队成员添加成功', type: 'success' })
       await loadWorkspace()
@@ -286,7 +246,7 @@ export function TeamWorkspacePage() {
     try {
       setIsUpdatingMembers(true)
       setMemberError('')
-      await updateTeamMemberRole(team.id, userId, { role: role })
+      await updateTeamMemberRole(team.id, userId, role)
       setToast({ message: '团队角色更新成功', type: 'success' })
       await loadWorkspace()
     } catch (error) {
@@ -324,19 +284,19 @@ export function TeamWorkspacePage() {
   return (
     <AppShell
       title="Run each team as an isolated workspace with explicit member roles."
-      description=""
+      description="团队空间负责展示团队成员、角色和团队任务。所有团队数据都在后端按成员关系与角色做强制校验，不能仅靠前端按钮隐藏。"
       aside={(
         <>
           <div className="aside-card">
-            <h2></h2>
+            <h2>权限矩阵</h2>
             <p>
-              
+              Member 浏览全部团队任务，只能修改自己被分配任务的状态；Admin 能管理团队任务；Owner 还能管理成员与角色。
             </p>
           </div>
           <div className="aside-card">
-            <h2></h2>
+            <h2>后端强校验</h2>
             <p>
-              
+              即使绕过前端直接调接口，非团队成员也拿不到团队数据，Member 也不能修改不属于自己的任务内容。
             </p>
           </div>
         </>

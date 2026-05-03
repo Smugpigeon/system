@@ -8,6 +8,7 @@ import com.lab.taskmanager.task.dto.PageRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.TaskPriority;
+import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
 import java.time.LocalDateTime;
@@ -62,7 +63,7 @@ class TaskControllerTest {
                 10,     // size
                 tasks   // records
         );
-        when(taskService.getDashboardTasks("alice", null, null, "", pageRequest)).thenReturn(pageResult);
+        when(taskService.listTasks("alice", null, null, pageRequest)).thenReturn(pageResult);
 
         mockMvc.perform(get("/api/tasks").principal(() -> "alice")
                 .param("page", "1")
@@ -80,7 +81,7 @@ class TaskControllerTest {
 
     @Test
     void createTaskShouldReturnCreated() throws Exception {
-        when(taskService.createPersonalTask(eq("alice"), any())).thenReturn(buildResponse(2L, "finish lab"));
+        when(taskService.createTask(eq("alice"), any())).thenReturn(buildResponse(2L, "finish lab"));
 
         String requestBody = objectMapper.writeValueAsString(
                 new TaskCreateRequestBody("finish lab", "backend part", "TODO", "HIGH"));
@@ -134,8 +135,16 @@ class TaskControllerTest {
                 now.plusDays(1),
                 now.minusDays(1),
                 now,
-                null, null, null, null,
-                null, null, null);
+                TaskScope.PERSONAL,
+                null,
+                null,
+                1L,
+                "alice",
+                1L,
+                "alice",
+                true,
+                true,
+                true);
     }
 
     private record TaskCreateRequestBody(

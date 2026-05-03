@@ -7,13 +7,16 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
+
     List<Task> findAllByOwnerIdOrderByUpdatedAtDesc(Long ownerId);
 
     Optional<Task> findByIdAndOwnerId(Long id, Long ownerId);
+
+    Page<Task> findAllByOwnerId(Long id, Pageable pageable);
 
     List<Task> findByOwnerIdAndStatusOrderByUpdatedAtDesc(Long id, TaskStatus status);
 
@@ -30,4 +33,6 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     
     Page<Task> findByOwnerIdAndStatusAndPriority(
             Long ownerId, TaskStatus status, TaskPriority priority, Pageable pageable);
+
+    long countByTeamId(Long teamId);
 }

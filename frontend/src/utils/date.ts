@@ -1,14 +1,15 @@
-export function formatDateTime(value: string | null) {
+export function formatDateTime(value?: string | null) {
   if (!value) {
     return '未设置'
   }
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
-    return value.replace('T', ' ')
+    return '无效时间'
   }
 
   return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -16,10 +17,16 @@ export function formatDateTime(value: string | null) {
   }).format(date)
 }
 
-export function toDateTimeLocalInput(value: string | null) {
+export function toDateTimeLocalInput(value?: string | null) {
   if (!value) {
     return ''
   }
 
-  return value.slice(0, 16)
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  const pad = (segment: number) => String(segment).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
