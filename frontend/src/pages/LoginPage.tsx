@@ -76,8 +76,8 @@ export function LoginPage() {
       aside={(
         <>
           <div className="aside-card">
-            <h2>Lab2 登录后</h2>
-            <p>进入个人工作台后，你可以继续查看自己的个人任务，也可以跳转到我的团队和团队空间。</p>
+            <h2>Lab3 登录后</h2>
+            <p>进入个人工作台后，你可以查看个人任务、团队任务和任务依赖，也可以跳转到我的团队和团队空间。</p>
           </div>
           <div className="aside-card">
             <h2>登录态保持</h2>

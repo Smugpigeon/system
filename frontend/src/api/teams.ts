@@ -26,3 +26,15 @@ export async function updateTeamMemberRole(teamId: number, userId: number, role:
   const response = await http.put<ApiResponse<TeamMember>>(`/teams/${teamId}/members/${userId}/role`, { role })
   return response.data.data
 }
+
+export async function removeTeamMember(teamId: number, userId: number) {
+  await http.delete(`/teams/${teamId}/members/${userId}`)
+}
+
+export async function leaveTeam(teamId: number) {
+  await http.post(`/teams/${teamId}/leave`)
+}
+
+export async function dissolveTeam(teamId: number) {
+  await http.delete(`/teams/${teamId}`)
+}

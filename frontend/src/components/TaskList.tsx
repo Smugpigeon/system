@@ -57,6 +57,11 @@ export function TaskList({
               <span className={`badge badge--priority-${task.priority}`}>
                 {PRIORITY_LABELS[task.priority]}
               </span>
+              {task.blockedByDependencies ? (
+                <span className="badge badge--blocked">
+                  阻塞 {task.unfinishedPredecessorCount}
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -69,6 +74,8 @@ export function TaskList({
             <span>创建者：{task.ownerUsername}</span>
             <span>截止：{formatDateTime(task.dueAt)}</span>
             <span>更新：{formatDateTime(task.updatedAt)}</span>
+            <span>前置：{task.predecessorCount}</span>
+            <span>后继：{task.successorCount}</span>
           </div>
         </button>
       ))}

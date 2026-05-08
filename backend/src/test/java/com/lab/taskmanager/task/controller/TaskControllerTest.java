@@ -11,6 +11,7 @@ import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
+import com.lab.taskmanager.task.service.TaskDependencyService;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,9 @@ class TaskControllerTest {
 
     @MockitoBean
     private TaskService taskService;
+
+    @MockitoBean
+    private TaskDependencyService taskDependencyService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -142,6 +146,10 @@ class TaskControllerTest {
                 "alice",
                 1L,
                 "alice",
+                false,
+                0,
+                0,
+                0,
                 true,
                 true,
                 true);

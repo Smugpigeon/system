@@ -3,7 +3,9 @@ package com.lab.taskmanager.team.service;
 import com.lab.taskmanager.common.exception.ForbiddenOperationException;
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
 import com.lab.taskmanager.team.entity.TeamMembership;
+import com.lab.taskmanager.team.entity.TeamMembershipStatus;
 import com.lab.taskmanager.team.entity.TeamRole;
+import com.lab.taskmanager.team.entity.TeamStatus;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +27,15 @@ public class TeamAuthorizationService {
      * @return persisted team membership
      */
     public TeamMembership requireMembership(@NotNull Long teamId, @NotNull Long userId) {
-        return teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
+        TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserIdAndStatus(
+                        teamId,
+                        userId,
+                        TeamMembershipStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("团队不存在，或你不是该团队成员"));
+        if (membership.getTeam().getStatus() != TeamStatus.ACTIVE) {
+            throw new ForbiddenOperationException("团队已解散，不能继续访问团队空间");
+        }
+        return membership;
     }
 
     /**

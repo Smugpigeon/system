@@ -6,7 +6,7 @@ import { Toast } from '../components/Toast'
 import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
 import type { TeamSummary } from '../types/team'
-import { TEAM_ROLE_LABELS } from '../types/team'
+import { TEAM_ROLE_LABELS, TEAM_STATUS_LABELS } from '../types/team'
 
 export function TeamsPage() {
   const navigate = useNavigate()
@@ -58,7 +58,7 @@ export function TeamsPage() {
   return (
     <AppShell
       title="Organize collaboration through explicit teams, roles and workspaces."
-      description="这里是 Lab2 的团队入口。你可以查看自己加入的全部团队，创建新团队，并进入团队空间管理成员和团队任务。"
+      description="这里是 Lab3 的团队入口。你可以查看自己加入的有效团队，创建新团队，并进入团队空间管理成员、任务与依赖。"
       aside={(
         <>
           <div className="aside-card">
@@ -100,7 +100,7 @@ export function TeamsPage() {
             <input
               value={teamName}
               maxLength={80}
-              placeholder="例如：Group14-Lab2 后端联调组"
+              placeholder="例如：Group14-Lab3 后端联调组"
               onChange={(event) => setTeamName(event.target.value)}
             />
             <button className="button-primary" type="submit" disabled={submitting}>
@@ -140,6 +140,7 @@ export function TeamsPage() {
                     </span>
                   </div>
                   <div className="team-card__meta">
+                    <span>状态：{TEAM_STATUS_LABELS[team.status]}</span>
                     <span>成员数：{team.memberCount}</span>
                     <span>团队任务：{team.teamTaskCount}</span>
                   </div>

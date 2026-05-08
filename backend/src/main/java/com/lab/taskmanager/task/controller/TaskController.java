@@ -2,6 +2,8 @@ package com.lab.taskmanager.task.controller;
 
 import com.lab.taskmanager.common.api.ApiResponse;
 import com.lab.taskmanager.task.dto.PageRequest;
+import com.lab.taskmanager.task.dto.TaskDependencyCreateRequest;
+import com.lab.taskmanager.task.dto.TaskDependencyResponse;
 import com.lab.taskmanager.task.dto.TaskCreateRequest;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TaskUpdateRequest;
@@ -10,6 +12,7 @@ import com.lab.taskmanager.task.entity.SortBy;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
+import com.lab.taskmanager.task.service.TaskDependencyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -37,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TaskController {
 
     private final TaskService taskService;
+    private final TaskDependencyService taskDependencyService;
 
     @GetMapping
     @Operation(summary = "获取任务列表", description = "获取当前用户创建的个人任务，以及分配给自己的团队任务")
@@ -93,6 +97,44 @@ public class TaskController {
             Principal principal) {
         taskService.deleteTask(principal.getName(), taskId);
         return ResponseEntity.ok(ApiResponse.success("任务删除成功"));
+    }
+
+    @GetMapping("/{taskId}/dependencies")
+    @Operation(summary = "获取个人任务依赖", description = "查看个人任务的前置任务与后继任务")
+    public ResponseEntity<ApiResponse<TaskDependencyResponse>> getDependencies(
+            @PathVariable Long taskId,
+            Principal principal) {
+        TaskDependencyResponse response = taskDependencyService.getPersonalDependencies(
+                principal.getName(),
+                taskId);
+        return ResponseEntity.ok(ApiResponse.success("任务依赖获取成功", response));
+    }
+
+    @PostMapping("/{taskId}/dependencies")
+    @Operation(summary = "新增个人任务依赖", description = "当前用户可为自己的个人任务新增前置任务依赖")
+    public ResponseEntity<ApiResponse<TaskDependencyResponse>> addDependency(
+            @PathVariable Long taskId,
+            @Valid @RequestBody TaskDependencyCreateRequest request,
+            Principal principal) {
+        TaskDependencyResponse response = taskDependencyService.addPersonalDependency(
+                principal.getName(),
+                taskId,
+                request.predecessorTaskId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("任务依赖新增成功", response));
+    }
+
+    @DeleteMapping("/{taskId}/dependencies/{predecessorTaskId}")
+    @Operation(summary = "删除个人任务依赖", description = "当前用户可移除自己的个人任务依赖关系")
+    public ResponseEntity<ApiResponse<TaskDependencyResponse>> removeDependency(
+            @PathVariable Long taskId,
+            @PathVariable Long predecessorTaskId,
+            Principal principal) {
+        TaskDependencyResponse response = taskDependencyService.removePersonalDependency(
+                principal.getName(),
+                taskId,
+                predecessorTaskId);
+        return ResponseEntity.ok(ApiResponse.success("任务依赖删除成功", response));
     }
 
     /**

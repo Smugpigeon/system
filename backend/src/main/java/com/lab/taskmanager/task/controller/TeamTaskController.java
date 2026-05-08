@@ -2,6 +2,8 @@ package com.lab.taskmanager.task.controller;
 
 import com.lab.taskmanager.common.api.ApiResponse;
 import com.lab.taskmanager.task.dto.PageRequest;
+import com.lab.taskmanager.task.dto.TaskDependencyCreateRequest;
+import com.lab.taskmanager.task.dto.TaskDependencyResponse;
 import com.lab.taskmanager.task.dto.TaskResponse;
 import com.lab.taskmanager.task.dto.TeamTaskCreateRequest;
 import com.lab.taskmanager.task.dto.TeamTaskStatusUpdateRequest;
@@ -10,6 +12,7 @@ import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.service.TaskService;
+import com.lab.taskmanager.task.service.TaskDependencyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -37,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TeamTaskController {
 
     private final TaskService taskService;
+    private final TaskDependencyService taskDependencyService;
 
     @GetMapping
     @Operation(summary = "获取团队任务列表", description = "团队成员可浏览团队全部任务")
@@ -114,5 +118,49 @@ public class TeamTaskController {
             Principal principal) {
         taskService.deleteTeamTask(principal.getName(), teamId, taskId);
         return ResponseEntity.ok(ApiResponse.success("团队任务删除成功"));
+    }
+
+    @GetMapping("/{taskId}/dependencies")
+    @Operation(summary = "获取团队任务依赖", description = "团队成员可查看团队任务的前置任务与后继任务")
+    public ResponseEntity<ApiResponse<TaskDependencyResponse>> getTeamTaskDependencies(
+            @PathVariable Long teamId,
+            @PathVariable Long taskId,
+            Principal principal) {
+        TaskDependencyResponse response = taskDependencyService.getTeamDependencies(
+                principal.getName(),
+                teamId,
+                taskId);
+        return ResponseEntity.ok(ApiResponse.success("团队任务依赖获取成功", response));
+    }
+
+    @PostMapping("/{taskId}/dependencies")
+    @Operation(summary = "新增团队任务依赖", description = "仅团队管理员或拥有者可为团队任务新增依赖关系")
+    public ResponseEntity<ApiResponse<TaskDependencyResponse>> addTeamTaskDependency(
+            @PathVariable Long teamId,
+            @PathVariable Long taskId,
+            @Valid @RequestBody TaskDependencyCreateRequest request,
+            Principal principal) {
+        TaskDependencyResponse response = taskDependencyService.addTeamDependency(
+                principal.getName(),
+                teamId,
+                taskId,
+                request.predecessorTaskId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("团队任务依赖新增成功", response));
+    }
+
+    @DeleteMapping("/{taskId}/dependencies/{predecessorTaskId}")
+    @Operation(summary = "删除团队任务依赖", description = "仅团队管理员或拥有者可删除团队任务依赖关系")
+    public ResponseEntity<ApiResponse<TaskDependencyResponse>> removeTeamTaskDependency(
+            @PathVariable Long teamId,
+            @PathVariable Long taskId,
+            @PathVariable Long predecessorTaskId,
+            Principal principal) {
+        TaskDependencyResponse response = taskDependencyService.removeTeamDependency(
+                principal.getName(),
+                teamId,
+                taskId,
+                predecessorTaskId);
+        return ResponseEntity.ok(ApiResponse.success("团队任务依赖删除成功", response));
     }
 }

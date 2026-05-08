@@ -21,6 +21,10 @@ public record TaskResponse(
         String ownerUsername,
         Long assigneeId,
         String assigneeUsername,
+        boolean blockedByDependencies,
+        int predecessorCount,
+        int successorCount,
+        int unfinishedPredecessorCount,
         boolean canEditDetails,
         boolean canEditStatus,
         boolean canDelete) {

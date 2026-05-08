@@ -1,6 +1,12 @@
 import { http } from './http'
 import type { ApiResponse, PageResponse } from '../types/api'
-import type { Task, TaskPayload, TeamTaskPayload, TaskStatus } from '../types/task'
+import type {
+  Task,
+  TaskDependencyResponse,
+  TaskPayload,
+  TeamTaskPayload,
+  TaskStatus,
+} from '../types/task'
 
 export type TaskQueryParams = {
   page?: number
@@ -60,4 +66,46 @@ export async function updateTeamTaskStatus(teamId: number, taskId: number, statu
 
 export async function deleteTeamTask(teamId: number, taskId: number) {
   await http.delete(`/teams/${teamId}/tasks/${taskId}`)
+}
+
+export async function fetchTaskDependencies(taskId: number) {
+  const response = await http.get<ApiResponse<TaskDependencyResponse>>(`/tasks/${taskId}/dependencies`)
+  return response.data.data
+}
+
+export async function addTaskDependency(taskId: number, predecessorTaskId: number) {
+  const response = await http.post<ApiResponse<TaskDependencyResponse>>(
+    `/tasks/${taskId}/dependencies`,
+    { predecessorTaskId },
+  )
+  return response.data.data
+}
+
+export async function removeTaskDependency(taskId: number, predecessorTaskId: number) {
+  const response = await http.delete<ApiResponse<TaskDependencyResponse>>(
+    `/tasks/${taskId}/dependencies/${predecessorTaskId}`,
+  )
+  return response.data.data
+}
+
+export async function fetchTeamTaskDependencies(teamId: number, taskId: number) {
+  const response = await http.get<ApiResponse<TaskDependencyResponse>>(
+    `/teams/${teamId}/tasks/${taskId}/dependencies`,
+  )
+  return response.data.data
+}
+
+export async function addTeamTaskDependency(teamId: number, taskId: number, predecessorTaskId: number) {
+  const response = await http.post<ApiResponse<TaskDependencyResponse>>(
+    `/teams/${teamId}/tasks/${taskId}/dependencies`,
+    { predecessorTaskId },
+  )
+  return response.data.data
+}
+
+export async function removeTeamTaskDependency(teamId: number, taskId: number, predecessorTaskId: number) {
+  const response = await http.delete<ApiResponse<TaskDependencyResponse>>(
+    `/teams/${teamId}/tasks/${taskId}/dependencies/${predecessorTaskId}`,
+  )
+  return response.data.data
 }

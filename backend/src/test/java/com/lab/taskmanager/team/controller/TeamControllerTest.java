@@ -6,7 +6,9 @@ import com.lab.taskmanager.auth.security.JwtService;
 import com.lab.taskmanager.common.exception.GlobalExceptionHandler;
 import com.lab.taskmanager.team.dto.TeamMemberResponse;
 import com.lab.taskmanager.team.dto.TeamSummaryResponse;
+import com.lab.taskmanager.team.entity.TeamMembershipStatus;
 import com.lab.taskmanager.team.entity.TeamRole;
+import com.lab.taskmanager.team.entity.TeamStatus;
 import com.lab.taskmanager.team.service.TeamService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,7 +50,7 @@ class TeamControllerTest {
     @Test
     void createTeamShouldReturnCreated() throws Exception {
         when(teamService.createTeam(eq("alice"), any()))
-                .thenReturn(new TeamSummaryResponse(1L, "Alpha Team", TeamRole.OWNER, 1, 0));
+                .thenReturn(new TeamSummaryResponse(1L, "Alpha Team", TeamStatus.ACTIVE, TeamRole.OWNER, 1, 0));
 
         mockMvc.perform(post("/api/teams")
                         .principal(() -> "alice")
@@ -77,7 +79,7 @@ class TeamControllerTest {
     @Test
     void updateRoleShouldReturnOk() throws Exception {
         when(teamService.updateMemberRole(eq("alice"), eq(1L), eq(2L), any()))
-                .thenReturn(new TeamMemberResponse(2L, "bob", TeamRole.ADMIN));
+                .thenReturn(new TeamMemberResponse(2L, "bob", TeamRole.ADMIN, TeamMembershipStatus.ACTIVE));
 
         mockMvc.perform(put("/api/teams/1/members/2/role")
                         .principal(() -> "alice")

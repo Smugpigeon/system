@@ -20,9 +20,30 @@ export type Task = {
   ownerUsername: string
   assigneeId: number
   assigneeUsername: string
+  blockedByDependencies: boolean
+  predecessorCount: number
+  successorCount: number
+  unfinishedPredecessorCount: number
   canEditDetails: boolean
   canEditStatus: boolean
   canDelete: boolean
+}
+
+export type TaskDependencyItem = {
+  id: number
+  title: string
+  status: TaskStatus
+  scope: TaskScope
+  teamId: number | null
+  assigneeUsername: string
+}
+
+export type TaskDependencyResponse = {
+  taskId: number
+  predecessors: TaskDependencyItem[]
+  successors: TaskDependencyItem[]
+  blockedByDependencies: boolean
+  unfinishedPredecessors: TaskDependencyItem[]
 }
 
 export type TaskPayload = {

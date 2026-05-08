@@ -21,7 +21,7 @@ export function AppShell({
               <span className="brand-dot" />
               task foundry
             </div>
-            <p className="eyebrow">Collaborative Task Management / Lab2</p>
+            <p className="eyebrow">Collaborative Task Management / Lab3</p>
             <h1 className="brand-title">{title}</h1>
             <p className="brand-copy">{description}</p>
             {aside}

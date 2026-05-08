@@ -7,9 +7,13 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  addTaskDependency,
   createTask,
   deleteTask,
+  fetchTaskDependencies,
+  fetchTeamTaskDependencies,
   fetchTasks,
+  removeTaskDependency,
   updateTask,
   updateTeamTaskStatus,
   type TaskQueryParams,
@@ -21,7 +25,7 @@ import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
-import type { Task, TaskFormValues, TaskPayload } from '../types/task'
+import type { Task, TaskDependencyResponse, TaskFormValues, TaskPayload } from '../types/task'
 import { taskToFormValues } from '../types/task'
 
 export function DashboardPage() {
@@ -33,6 +37,9 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [loadingError, setLoadingError] = useState('')
   const [submitError, setSubmitError] = useState('')
+  const [dependencyError, setDependencyError] = useState('')
+  const [dependencyInput, setDependencyInput] = useState('')
+  const [dependencies, setDependencies] = useState<TaskDependencyResponse | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(10)
@@ -208,9 +215,80 @@ export function DashboardPage() {
   }
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+
+  const loadDependencies = useCallback(async (task: Task | null) => {
+    if (!task) {
+      setDependencies(null)
+      return
+    }
+    try {
+      setDependencyError('')
+      const response = task.scope === 'TEAM' && task.teamId
+        ? await fetchTeamTaskDependencies(task.teamId, task.id)
+        : await fetchTaskDependencies(task.id)
+      setDependencies(response)
+    } catch (error) {
+      setDependencies(null)
+      setDependencyError(getErrorMessage(error))
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDependencies(selectedTask)
+  }, [loadDependencies, selectedTask])
+
+  const handleAddDependency = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selectedTask) {
+      return
+    }
+    if (selectedTask.scope !== 'PERSONAL') {
+      setDependencyError('团队任务依赖请进入团队空间管理')
+      return
+    }
+    const predecessorTaskId = Number(dependencyInput)
+    if (!Number.isFinite(predecessorTaskId) || predecessorTaskId <= 0) {
+      setDependencyError('请输入有效的前置任务 ID')
+      return
+    }
+
+    try {
+      const response = await addTaskDependency(selectedTask.id, predecessorTaskId)
+      setDependencies(response)
+      setDependencyInput('')
+      setToast({ message: '个人任务依赖已新增', type: 'success' })
+      await loadTasks()
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setDependencyError(message)
+      setToast({ message, type: 'error' })
+    }
+  }
+
+  const handleRemoveDependency = async (predecessorTaskId: number) => {
+    if (!selectedTask || selectedTask.scope !== 'PERSONAL') {
+      setDependencyError('团队任务依赖请进入团队空间管理')
+      return
+    }
+
+    try {
+      const response = await removeTaskDependency(selectedTask.id, predecessorTaskId)
+      setDependencies(response)
+      setToast({ message: '个人任务依赖已删除', type: 'success' })
+      await loadTasks()
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setDependencyError(message)
+      setToast({ message, type: 'error' })
+    }
+  }
+
   const selectedTaskHint = useMemo(() => {
     if (!selectedTask) {
       return ''
+    }
+    if (selectedTask.blockedByDependencies) {
+      return `这条任务还有 ${selectedTask.unfinishedPredecessorCount} 个未完成前置任务，不能直接改为已完成。`
     }
     if (selectedTask.scope === 'TEAM') {
       if (selectedTask.canEditStatus) {
@@ -231,7 +309,7 @@ export function DashboardPage() {
   return (
     <AppShell
       title="Keep personal work and team work visible in one dependable dashboard."
-      description="Lab2 的个人工作台同时展示自己创建的个人任务，以及分配给自己的团队任务。个人任务可完整管理，团队任务会按权限限制操作。"
+      description="Lab3 的个人工作台同时展示自己创建的个人任务，以及分配给自己的团队任务。个人任务可管理依赖，团队任务会按权限限制操作。"
       aside={(
         <>
           <div className="aside-card">
@@ -262,7 +340,7 @@ export function DashboardPage() {
     >
       <header className="main-header">
         <div>
-          <p className="eyebrow">Personal Dashboard / Lab2</p>
+          <p className="eyebrow">Personal Dashboard / Lab3</p>
           <h1>{auth?.username} 的工作台</h1>
           <p>
             在这里统一查看个人任务和分配给你的团队任务。团队协作管理入口放在独立团队空间，避免权限判断散落在同一页面里。
@@ -397,6 +475,82 @@ export function DashboardPage() {
                   : '保存修改'
             }
           />
+
+          {selectedTask ? (
+            <section className="dependency-panel">
+              <div className="panel-header">
+                <div>
+                  <p className="eyebrow">Dependencies</p>
+                  <h2>任务依赖</h2>
+                </div>
+              </div>
+              {dependencies?.blockedByDependencies ? (
+                <div className="message message--info">
+                  该任务存在未完成前置任务，暂时不能标记为 DONE。
+                </div>
+              ) : null}
+              {selectedTask.scope === 'PERSONAL' ? (
+                <form className="inline-form" onSubmit={handleAddDependency}>
+                  <input
+                    value={dependencyInput}
+                    placeholder="输入前置任务 ID"
+                    onChange={(event) => setDependencyInput(event.target.value)}
+                  />
+                  <button className="button-primary" type="submit">
+                    新增依赖
+                  </button>
+                </form>
+              ) : (
+                <div className="message message--info">
+                  团队任务依赖请在团队空间中由 Admin 或 Owner 管理。
+                </div>
+              )}
+              {dependencyError ? <div className="message message--error">{dependencyError}</div> : null}
+              <div className="dependency-grid">
+                <div>
+                  <h3>前置任务</h3>
+                  {(dependencies?.predecessors ?? []).length ? (
+                    <ul className="dependency-list">
+                      {dependencies?.predecessors.map((task) => (
+                        <li key={task.id}>
+                          <span>
+                            #{task.id} {task.title} · {task.status}
+                          </span>
+                          {selectedTask.scope === 'PERSONAL' ? (
+                            <button
+                              className="button-ghost"
+                              type="button"
+                              onClick={() => handleRemoveDependency(task.id)}
+                            >
+                              移除
+                            </button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted-text">暂无前置任务</p>
+                  )}
+                </div>
+                <div>
+                  <h3>后继任务</h3>
+                  {(dependencies?.successors ?? []).length ? (
+                    <ul className="dependency-list">
+                      {dependencies?.successors.map((task) => (
+                        <li key={task.id}>
+                          <span>
+                            #{task.id} {task.title} · {task.status}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted-text">暂无后继任务</p>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : null}
         </div>
       </section>
 

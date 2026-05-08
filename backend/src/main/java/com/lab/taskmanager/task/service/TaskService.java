@@ -17,9 +17,11 @@ import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
+import com.lab.taskmanager.task.repository.TaskDependencyRepository;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.task.spec.TaskSpecifications;
 import com.lab.taskmanager.team.entity.TeamMembership;
+import com.lab.taskmanager.team.entity.TeamMembershipStatus;
 import com.lab.taskmanager.team.entity.TeamRole;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.service.TeamAuthorizationService;
@@ -50,6 +52,8 @@ public class TaskService {
     private final TaskRankingService taskRankingService;
     private final TeamAuthorizationService teamAuthorizationService;
     private final TeamMembershipRepository teamMembershipRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
+    private final TaskDependencyService taskDependencyService;
 
     /**
      * Return the current user's personal tasks together with team tasks assigned to them.
@@ -119,6 +123,8 @@ public class TaskService {
         Task task = taskRepository.findOne(TaskSpecifications.personalTaskOwnedBy(currentUser.getId())
                         .and(TaskSpecifications.withId(taskId)))
                 .orElseThrow(() -> findPersonalTaskFailure(currentUser.getId(), taskId));
+        taskDependencyService.assertCanDeleteTask(task);
+        taskDependencyService.deleteDependenciesOwnedByTask(task.getId());
         taskRepository.delete(task);
     }
 
@@ -201,7 +207,7 @@ public class TaskService {
             throw new ForbiddenOperationException("团队成员只能修改分配给自己的任务状态");
         }
 
-        task.setStatus(request.status());
+        setTaskStatus(task, request.status() == null ? TaskStatus.TODO : request.status());
         return toResponse(taskRepository.save(task), currentUser, membership);
     }
 
@@ -210,6 +216,8 @@ public class TaskService {
         User currentUser = userService.findByUsernameOrThrow(username);
         teamAuthorizationService.requireAdminOrOwner(teamId, currentUser.getId());
         Task task = findTeamTaskOrThrow(teamId, taskId);
+        taskDependencyService.assertCanDeleteTask(task);
+        taskDependencyService.deleteDependenciesOwnedByTask(task.getId());
         taskRepository.delete(task);
     }
 
@@ -249,9 +257,12 @@ public class TaskService {
     }
 
     private User resolveTeamAssignee(Long teamId, Long assigneeId) {
-        return teamMembershipRepository.findByTeamIdAndUserId(teamId, assigneeId)
+        return teamMembershipRepository.findByTeamIdAndUserIdAndStatus(
+                        teamId,
+                        assigneeId,
+                        TeamMembershipStatus.ACTIVE)
                 .map(TeamMembership::getUser)
-                .orElseThrow(() -> new BusinessException("被分配用户不是该团队成员"));
+                .orElseThrow(() -> new BusinessException("被分配用户不是该团队当前有效成员"));
     }
 
     private void applyTaskChanges(
@@ -263,9 +274,14 @@ public class TaskService {
             LocalDateTime dueAt) {
         task.setTitle(title.trim());
         task.setDescription(description == null ? "" : description.trim());
-        task.setStatus(status == null ? TaskStatus.TODO : status);
+        setTaskStatus(task, status == null ? TaskStatus.TODO : status);
         task.setPriority(priority == null ? TaskPriority.MEDIUM : priority);
         task.setDueAt(dueAt);
+    }
+
+    private void setTaskStatus(Task task, TaskStatus targetStatus) {
+        taskDependencyService.assertStatusTransitionAllowed(task, targetStatus);
+        task.setStatus(targetStatus);
     }
 
     private List<Task> sortTasks(List<Task> tasks, SortBy sortBy) {
@@ -329,7 +345,7 @@ public class TaskService {
     }
 
     private Map<Long, TeamMembership> buildMembershipIndex(User currentUser) {
-        return teamMembershipRepository.findAllByUserId(currentUser.getId())
+        return teamMembershipRepository.findAllByUserIdAndStatus(currentUser.getId(), TeamMembershipStatus.ACTIVE)
                 .stream()
                 .collect(Collectors.toMap(membership -> membership.getTeam().getId(), Function.identity()));
     }
@@ -367,6 +383,10 @@ public class TaskService {
                 task.getOwner().getUsername(),
                 task.getAssignee().getId(),
                 task.getAssignee().getUsername(),
+                taskDependencyRepository.countUnfinishedPredecessors(task.getId(), TaskStatus.DONE) > 0,
+                Math.toIntExact(taskDependencyRepository.countBySuccessorId(task.getId())),
+                Math.toIntExact(taskDependencyRepository.countByPredecessorId(task.getId())),
+                Math.toIntExact(taskDependencyRepository.countUnfinishedPredecessors(task.getId(), TaskStatus.DONE)),
                 canEditDetails,
                 canEditStatus,
                 canDelete);

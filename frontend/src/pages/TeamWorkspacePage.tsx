@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { addTeamMember, fetchTeamDetail, updateTeamMemberRole } from '../api/teams'
 import {
+  addTeamMember,
+  dissolveTeam,
+  fetchTeamDetail,
+  leaveTeam,
+  removeTeamMember,
+  updateTeamMemberRole,
+} from '../api/teams'
+import {
+  addTeamTaskDependency,
   createTeamTask,
   deleteTeamTask,
+  fetchTeamTaskDependencies,
   fetchTeamTasks,
+  removeTeamTaskDependency,
   updateTeamTask,
   updateTeamTaskStatus,
   type TaskQueryParams,
@@ -16,9 +26,15 @@ import { TaskList } from '../components/TaskList'
 import { Toast } from '../components/Toast'
 import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
-import type { Task, TaskFormValues, TeamTaskPayload } from '../types/task'
+import type { Task, TaskDependencyResponse, TaskFormValues, TeamTaskPayload } from '../types/task'
 import { taskToFormValues } from '../types/task'
-import { TEAM_ROLE_LABELS, type TeamDetail, type TeamRole } from '../types/team'
+import {
+  TEAM_MEMBERSHIP_STATUS_LABELS,
+  TEAM_ROLE_LABELS,
+  TEAM_STATUS_LABELS,
+  type TeamDetail,
+  type TeamRole,
+} from '../types/team'
 
 export function TeamWorkspacePage() {
   const navigate = useNavigate()
@@ -33,6 +49,9 @@ export function TeamWorkspacePage() {
   const [loadingError, setLoadingError] = useState('')
   const [submitError, setSubmitError] = useState('')
   const [memberError, setMemberError] = useState('')
+  const [dependencyError, setDependencyError] = useState('')
+  const [dependencyInput, setDependencyInput] = useState('')
+  const [dependencies, setDependencies] = useState<TaskDependencyResponse | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUpdatingMembers, setIsUpdatingMembers] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -259,18 +278,147 @@ export function TeamWorkspacePage() {
   }
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
+
+  const loadDependencies = useCallback(async (task: Task | null) => {
+    if (!team || !task) {
+      setDependencies(null)
+      return
+    }
+    try {
+      setDependencyError('')
+      const response = await fetchTeamTaskDependencies(team.id, task.id)
+      setDependencies(response)
+    } catch (error) {
+      setDependencies(null)
+      setDependencyError(getErrorMessage(error))
+    }
+  }, [team])
+
+  useEffect(() => {
+    loadDependencies(selectedTask)
+  }, [loadDependencies, selectedTask])
+
+  const handleAddDependency = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!team || !selectedTask) {
+      return
+    }
+    const predecessorTaskId = Number(dependencyInput)
+    if (!Number.isFinite(predecessorTaskId) || predecessorTaskId <= 0) {
+      setDependencyError('请输入有效的前置任务 ID')
+      return
+    }
+
+    try {
+      const response = await addTeamTaskDependency(team.id, selectedTask.id, predecessorTaskId)
+      setDependencies(response)
+      setDependencyInput('')
+      setToast({ message: '团队任务依赖已新增', type: 'success' })
+      await loadWorkspace()
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setDependencyError(message)
+      setToast({ message, type: 'error' })
+    }
+  }
+
+  const handleRemoveDependency = async (predecessorTaskId: number) => {
+    if (!team || !selectedTask) {
+      return
+    }
+
+    try {
+      const response = await removeTeamTaskDependency(team.id, selectedTask.id, predecessorTaskId)
+      setDependencies(response)
+      setToast({ message: '团队任务依赖已删除', type: 'success' })
+      await loadWorkspace()
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setDependencyError(message)
+      setToast({ message, type: 'error' })
+    }
+  }
+
+  const handleRemoveMember = async (userId: number) => {
+    if (!team) {
+      return
+    }
+    const confirmed = window.confirm('确认移除该成员吗？其负责的团队任务会自动转交给 Owner。')
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setIsUpdatingMembers(true)
+      await removeTeamMember(team.id, userId)
+      setToast({ message: '团队成员已移除，任务已转交 Owner', type: 'success' })
+      await loadWorkspace()
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setMemberError(message)
+      setToast({ message, type: 'error' })
+    } finally {
+      setIsUpdatingMembers(false)
+    }
+  }
+
+  const handleLeaveTeam = async () => {
+    if (!team) {
+      return
+    }
+    const confirmed = window.confirm('确认离开团队吗？你负责的团队任务会自动转交给 Owner。')
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await leaveTeam(team.id)
+      setToast({ message: '已离开团队', type: 'success' })
+      navigate('/teams')
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setMemberError(message)
+      setToast({ message, type: 'error' })
+    }
+  }
+
+  const handleDissolveTeam = async () => {
+    if (!team) {
+      return
+    }
+    const confirmed = window.confirm('确认解散团队吗？解散后成员不能继续访问团队空间。')
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await dissolveTeam(team.id)
+      setToast({ message: '团队已解散', type: 'success' })
+      navigate('/teams')
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setMemberError(message)
+      setToast({ message, type: 'error' })
+    }
+  }
+
   const canManageTeamTasks = team?.currentUserRole === 'OWNER' || team?.currentUserRole === 'ADMIN'
   const canManageMembers = team?.currentUserRole === 'OWNER'
   const assigneeOptions = useMemo(
-    () => (team?.members ?? []).map((member) => ({
-      value: String(member.userId),
-      label: `${member.username} (${TEAM_ROLE_LABELS[member.role]})`,
-    })),
+    () => (team?.members ?? [])
+      .filter((member) => member.status === 'ACTIVE')
+      .map((member) => ({
+        value: String(member.userId),
+        label: `${member.username} (${TEAM_ROLE_LABELS[member.role]})`,
+      })),
     [team],
   )
   const selectedTaskHint = useMemo(() => {
     if (!selectedTask) {
       return ''
+    }
+    if (selectedTask.blockedByDependencies) {
+      return `这条任务还有 ${selectedTask.unfinishedPredecessorCount} 个未完成前置任务，不能直接改为已完成。`
     }
     if (selectedTask.canEditDetails) {
       return ''
@@ -308,7 +456,7 @@ export function TeamWorkspacePage() {
           <h1>{team ? team.name : '团队空间'}</h1>
           <p>
             这里展示团队成员和角色，并提供团队任务的浏览、创建、分配、更新与删除能力。当前登录角色：
-            {team ? ` ${TEAM_ROLE_LABELS[team.currentUserRole]}` : ' 加载中'}
+            {team ? ` ${TEAM_ROLE_LABELS[team.currentUserRole]}，团队状态：${TEAM_STATUS_LABELS[team.status]}` : ' 加载中'}
           </p>
         </div>
         <div className="toolbar">
@@ -318,6 +466,16 @@ export function TeamWorkspacePage() {
           <button className="button-ghost" type="button" onClick={() => navigate('/tasks')}>
             返回工作台
           </button>
+          {team?.currentUserRole !== 'OWNER' ? (
+            <button className="button-danger" type="button" onClick={handleLeaveTeam}>
+              离开团队
+            </button>
+          ) : null}
+          {canManageMembers ? (
+            <button className="button-danger" type="button" onClick={handleDissolveTeam}>
+              解散团队
+            </button>
+          ) : null}
           <button className="button-ghost" type="button" onClick={logout}>
             退出登录
           </button>
@@ -357,12 +515,13 @@ export function TeamWorkspacePage() {
                 <div>
                   <h3>{member.username}</h3>
                   <p>{TEAM_ROLE_LABELS[member.role]}</p>
+                  <p>{TEAM_MEMBERSHIP_STATUS_LABELS[member.status]}</p>
                 </div>
                 <div className="member-card__actions">
                   <span className={`role-badge role-badge--${member.role.toLowerCase()}`}>
                     {TEAM_ROLE_LABELS[member.role]}
                   </span>
-                  {canManageMembers && member.role !== 'OWNER' ? (
+                  {canManageMembers && member.role !== 'OWNER' && member.status === 'ACTIVE' ? (
                     member.role === 'MEMBER' ? (
                       <button
                         className="button-ghost"
@@ -382,6 +541,16 @@ export function TeamWorkspacePage() {
                         降为 Member
                       </button>
                     )
+                  ) : null}
+                  {canManageMembers && member.role !== 'OWNER' && member.status === 'ACTIVE' ? (
+                    <button
+                      className="button-danger"
+                      type="button"
+                      disabled={isUpdatingMembers}
+                      onClick={() => handleRemoveMember(member.userId)}
+                    >
+                      移除
+                    </button>
                   ) : null}
                 </div>
               </article>
@@ -481,6 +650,82 @@ export function TeamWorkspacePage() {
                   : '更新任务状态'
             }
           />
+
+          {selectedTask ? (
+            <section className="dependency-panel">
+              <div className="panel-header">
+                <div>
+                  <p className="eyebrow">Dependencies</p>
+                  <h2>团队任务依赖</h2>
+                </div>
+              </div>
+              {dependencies?.blockedByDependencies ? (
+                <div className="message message--info">
+                  该任务存在未完成前置任务，暂时不能标记为 DONE。
+                </div>
+              ) : null}
+              {canManageTeamTasks ? (
+                <form className="inline-form" onSubmit={handleAddDependency}>
+                  <input
+                    value={dependencyInput}
+                    placeholder="输入同团队前置任务 ID"
+                    onChange={(event) => setDependencyInput(event.target.value)}
+                  />
+                  <button className="button-primary" type="submit">
+                    新增依赖
+                  </button>
+                </form>
+              ) : (
+                <div className="message message--info">
+                  你可以查看依赖关系；只有 Admin 或 Owner 可以新增、移除依赖。
+                </div>
+              )}
+              {dependencyError ? <div className="message message--error">{dependencyError}</div> : null}
+              <div className="dependency-grid">
+                <div>
+                  <h3>前置任务</h3>
+                  {(dependencies?.predecessors ?? []).length ? (
+                    <ul className="dependency-list">
+                      {dependencies?.predecessors.map((task) => (
+                        <li key={task.id}>
+                          <span>
+                            #{task.id} {task.title} · {task.status}
+                          </span>
+                          {canManageTeamTasks ? (
+                            <button
+                              className="button-ghost"
+                              type="button"
+                              onClick={() => handleRemoveDependency(task.id)}
+                            >
+                              移除
+                            </button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted-text">暂无前置任务</p>
+                  )}
+                </div>
+                <div>
+                  <h3>后继任务</h3>
+                  {(dependencies?.successors ?? []).length ? (
+                    <ul className="dependency-list">
+                      {dependencies?.successors.map((task) => (
+                        <li key={task.id}>
+                          <span>
+                            #{task.id} {task.title} · {task.status}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted-text">暂无后继任务</p>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : null}
         </div>
       </section>
 

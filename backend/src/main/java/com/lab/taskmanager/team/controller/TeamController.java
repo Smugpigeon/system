@@ -16,6 +16,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -115,5 +116,33 @@ public class TeamController {
             Principal principal) {
         TeamMemberResponse response = teamService.updateMemberRole(principal.getName(), teamId, userId, request);
         return ResponseEntity.ok(ApiResponse.success("团队角色更新成功", response));
+    }
+
+    @DeleteMapping("/{teamId}/members/{userId}")
+    @Operation(summary = "移除团队成员", description = "仅团队拥有者可移除 Member 或 Admin，任务自动转交给 Owner")
+    public ResponseEntity<ApiResponse<Void>> removeMember(
+            @PathVariable Long teamId,
+            @PathVariable Long userId,
+            Principal principal) {
+        teamService.removeMember(principal.getName(), teamId, userId);
+        return ResponseEntity.ok(ApiResponse.success("团队成员已移除"));
+    }
+
+    @PostMapping("/{teamId}/leave")
+    @Operation(summary = "主动离开团队", description = "Member 或 Admin 可主动离开团队，Owner 需先解散团队")
+    public ResponseEntity<ApiResponse<Void>> leaveTeam(
+            @PathVariable Long teamId,
+            Principal principal) {
+        teamService.leaveTeam(principal.getName(), teamId);
+        return ResponseEntity.ok(ApiResponse.success("已离开团队"));
+    }
+
+    @DeleteMapping("/{teamId}")
+    @Operation(summary = "解散团队", description = "仅 Owner 可解散团队，解散后普通团队空间不能继续访问")
+    public ResponseEntity<ApiResponse<Void>> dissolveTeam(
+            @PathVariable Long teamId,
+            Principal principal) {
+        teamService.dissolveTeam(principal.getName(), teamId);
+        return ResponseEntity.ok(ApiResponse.success("团队已解散"));
     }
 }

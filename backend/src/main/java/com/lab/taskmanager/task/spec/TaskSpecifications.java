@@ -4,6 +4,7 @@ import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
+import com.lab.taskmanager.team.entity.TeamStatus;
 import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -19,14 +20,16 @@ public final class TaskSpecifications {
                         builder.equal(root.get("owner").get("id"), userId)),
                 builder.and(
                         builder.equal(root.get("scope"), TaskScope.TEAM),
-                        builder.equal(root.get("assignee").get("id"), userId))
+                        builder.equal(root.get("assignee").get("id"), userId),
+                        builder.equal(root.join("team", JoinType.LEFT).get("status"), TeamStatus.ACTIVE))
         );
     }
 
     public static Specification<Task> teamTasks(Long teamId) {
         return (root, query, builder) -> builder.and(
                 builder.equal(root.get("scope"), TaskScope.TEAM),
-                builder.equal(root.join("team", JoinType.LEFT).get("id"), teamId)
+                builder.equal(root.join("team", JoinType.LEFT).get("id"), teamId),
+                builder.equal(root.join("team", JoinType.LEFT).get("status"), TeamStatus.ACTIVE)
         );
     }
 

@@ -35,4 +35,6 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
             Long ownerId, TaskStatus status, TaskPriority priority, Pageable pageable);
 
     long countByTeamId(Long teamId);
+
+    List<Task> findAllByTeamIdAndAssigneeId(Long teamId, Long assigneeId);
 }

@@ -9,6 +9,7 @@ import com.lab.taskmanager.team.dto.TeamRoleUpdateRequest;
 import com.lab.taskmanager.team.dto.TeamSummaryResponse;
 import com.lab.taskmanager.team.entity.Team;
 import com.lab.taskmanager.team.entity.TeamMembership;
+import com.lab.taskmanager.team.entity.TeamMembershipStatus;
 import com.lab.taskmanager.team.entity.TeamRole;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.repository.TeamRepository;
@@ -83,7 +84,9 @@ class TeamServiceTest {
         when(userService.findByUsernameOrThrow("owner_user")).thenReturn(owner);
         when(userService.findByUsernameOrThrow("member_user")).thenReturn(targetUser);
         when(teamAuthorizationService.requireOwner(100L, owner.getId())).thenReturn(ownerMembership);
-        when(teamMembershipRepository.existsByTeamIdAndUserId(100L, targetUser.getId())).thenReturn(true);
+        TeamMembership targetMembership = membership(team, targetUser, TeamRole.MEMBER);
+        when(teamMembershipRepository.findByTeamIdAndUserId(100L, targetUser.getId()))
+                .thenReturn(java.util.Optional.of(targetMembership));
 
         assertThrows(
                 BusinessException.class,
@@ -99,7 +102,10 @@ class TeamServiceTest {
 
         when(userService.findByUsernameOrThrow("owner_user")).thenReturn(owner);
         when(teamAuthorizationService.requireOwner(100L, owner.getId())).thenReturn(ownerMembership);
-        when(teamMembershipRepository.findByTeamIdAndUserId(100L, owner.getId()))
+        when(teamMembershipRepository.findByTeamIdAndUserIdAndStatus(
+                100L,
+                owner.getId(),
+                TeamMembershipStatus.ACTIVE))
                 .thenReturn(java.util.Optional.of(targetMembership));
 
         assertThrows(
