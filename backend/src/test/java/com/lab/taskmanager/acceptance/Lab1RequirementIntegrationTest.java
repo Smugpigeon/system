@@ -151,6 +151,22 @@ class Lab1RequirementIntegrationTest {
         assertEquals(1, aliceListBody.path("data").path("totalRecords").asInt());
         assertEquals("Prepare Lab1 Demo", aliceListBody.path("data").path("records").get(0).path("title").asText());
 
+        ResponseEntity<String> keywordMatchResponse = exchange(
+                HttpMethod.GET,
+                "/api/tasks?keyword=acceptance&page=1&size=10",
+                null,
+                alice.token());
+        assertEquals(HttpStatus.OK, keywordMatchResponse.getStatusCode());
+        assertEquals(1, readBody(keywordMatchResponse).path("data").path("totalRecords").asInt());
+
+        ResponseEntity<String> keywordMissResponse = exchange(
+                HttpMethod.GET,
+                "/api/tasks?keyword=not_existing_keyword&page=1&size=10",
+                null,
+                alice.token());
+        assertEquals(HttpStatus.OK, keywordMissResponse.getStatusCode());
+        assertEquals(0, readBody(keywordMissResponse).path("data").path("totalRecords").asInt());
+
         ResponseEntity<String> bobDetailResponse = exchange(
                 HttpMethod.GET,
                 "/api/tasks/" + taskId,

@@ -7,6 +7,7 @@ export type TaskQueryParams = {
   size?: number
   status?: string
   priority?: string
+  keyword?: string
   sortBy?: string
 }
 
