@@ -51,6 +51,9 @@ public class TaskService {
     private final TeamAuthorizationService teamAuthorizationService;
     private final TeamMembershipRepository teamMembershipRepository;
 
+    // ================= DashBoard Scope =================
+    // Person tasks of current user and team tasks assigned to the current user
+
     /**
      * Return the current user's personal tasks together with team tasks assigned to them.
      *
@@ -124,6 +127,8 @@ public class TaskService {
                 .orElseThrow(() -> findPersonalTaskFailure(currentUser.getId(), taskId));
         taskRepository.delete(task);
     }
+
+    // ================= Team Tasks Scope =================
 
     @Transactional(readOnly = true)
     public PageResult<TaskResponse> listTeamTasks(
@@ -216,30 +221,6 @@ public class TaskService {
         teamAuthorizationService.requireAdminOrOwner(teamId, currentUser.getId());
         Task task = findTeamTaskOrThrow(teamId, taskId);
         taskRepository.delete(task);
-    }
-
-    @Transactional(readOnly = true)
-    public PageResult<TaskResponse> page(@NotNull PageRequest pageRequest, @NotNull String username) {
-        return listTasks(username, null, null, null, pageRequest);
-    }
-
-    @Transactional(readOnly = true)
-    public List<TaskResponse> getFilteredTasks(
-            @NotNull String username,
-            @Nullable TaskStatus status,
-            @Nullable TaskPriority priority,
-            @Nullable String keyword,
-            @Nullable SortBy sortBy) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(currentUser.getId())
-                .and(TaskSpecifications.withStatus(status))
-                .and(TaskSpecifications.withPriority(priority))
-                .and(TaskSpecifications.withKeyword(keyword));
-        List<Task> tasks = sortTasks(taskRepository.findAll(specification), sortBy);
-        Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
-        return tasks.stream()
-                .map(task -> toResponse(task, currentUser, membershipIndex.get(taskTeamId(task))))
-                .toList();
     }
 
     private RuntimeException findPersonalTaskFailure(Long currentUserId, Long taskId) {
@@ -342,9 +323,10 @@ public class TaskService {
     }
 
     private TaskResponse toResponse(Task task, User currentUser, TeamMembership teamMembership) {
-        boolean canEditDetails = task.getScope() == TaskScope.PERSONAL;
-        boolean canEditStatus = task.getScope() == TaskScope.PERSONAL;
-        boolean canDelete = task.getScope() == TaskScope.PERSONAL;
+        boolean isPersonal = task.getScope() == TaskScope.PERSONAL;
+        boolean canEditDetails = isPersonal;
+        boolean canEditStatus = isPersonal;
+        boolean canDelete = isPersonal;
 
         if (task.getScope() == TaskScope.TEAM && teamMembership != null) {
             if (teamMembership.getRole() == TeamRole.OWNER || teamMembership.getRole() == TeamRole.ADMIN) {

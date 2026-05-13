@@ -6,6 +6,7 @@ import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.Nullable;
 
 public final class TaskSpecifications {
 
@@ -41,13 +42,13 @@ public final class TaskSpecifications {
         return (root, query, builder) -> builder.equal(root.get("id"), taskId);
     }
 
-    public static Specification<Task> withStatus(TaskStatus status) {
+    public static Specification<Task> withStatus(@Nullable TaskStatus status) {
         return (root, query, builder) -> status == null
                 ? builder.conjunction()
                 : builder.equal(root.get("status"), status);
     }
 
-    public static Specification<Task> withPriority(TaskPriority priority) {
+    public static Specification<Task> withPriority(@Nullable TaskPriority priority) {
         return (root, query, builder) -> priority == null
                 ? builder.conjunction()
                 : builder.equal(root.get("priority"), priority);
