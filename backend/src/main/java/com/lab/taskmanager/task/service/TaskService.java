@@ -57,6 +57,7 @@ public class TaskService {
      * @param username authenticated username
      * @param status optional status filter
      * @param priority optional priority filter
+     * @param keyword optional keyword filter
      * @param pageRequest pagination and sorting request
      * @return paged dashboard tasks
      */
@@ -65,11 +66,13 @@ public class TaskService {
             @NotNull String username,
             @Nullable TaskStatus status,
             @Nullable TaskPriority priority,
+            @Nullable String keyword,
             @NotNull PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
         Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(currentUser.getId())
                 .and(TaskSpecifications.withStatus(status))
-                .and(TaskSpecifications.withPriority(priority));
+                .and(TaskSpecifications.withPriority(priority))
+                .and(TaskSpecifications.withKeyword(keyword));
         List<Task> tasks = taskRepository.findAll(specification);
         Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
         return paginateAndMap(
@@ -128,12 +131,14 @@ public class TaskService {
             @NotNull Long teamId,
             @Nullable TaskStatus status,
             @Nullable TaskPriority priority,
+            @Nullable String keyword,
             @NotNull PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
         TeamMembership membership = teamAuthorizationService.requireMembership(teamId, currentUser.getId());
         Specification<Task> specification = TaskSpecifications.teamTasks(teamId)
                 .and(TaskSpecifications.withStatus(status))
-                .and(TaskSpecifications.withPriority(priority));
+                .and(TaskSpecifications.withPriority(priority))
+                .and(TaskSpecifications.withKeyword(keyword));
         List<Task> tasks = taskRepository.findAll(specification);
         return paginateAndMap(
                 sortTasks(tasks, pageRequest.sortBy()),
@@ -215,7 +220,7 @@ public class TaskService {
 
     @Transactional(readOnly = true)
     public PageResult<TaskResponse> page(@NotNull PageRequest pageRequest, @NotNull String username) {
-        return listTasks(username, null, null, pageRequest);
+        return listTasks(username, null, null, null, pageRequest);
     }
 
     @Transactional(readOnly = true)
@@ -223,11 +228,13 @@ public class TaskService {
             @NotNull String username,
             @Nullable TaskStatus status,
             @Nullable TaskPriority priority,
+            @Nullable String keyword,
             @Nullable SortBy sortBy) {
         User currentUser = userService.findByUsernameOrThrow(username);
         Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(currentUser.getId())
                 .and(TaskSpecifications.withStatus(status))
-                .and(TaskSpecifications.withPriority(priority));
+                .and(TaskSpecifications.withPriority(priority))
+                .and(TaskSpecifications.withKeyword(keyword));
         List<Task> tasks = sortTasks(taskRepository.findAll(specification), sortBy);
         Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
         return tasks.stream()

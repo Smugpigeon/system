@@ -46,6 +46,7 @@ public class TeamTaskController {
             @RequestParam(required = false, defaultValue = "10") Integer size,
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "updatedAt")
             @Parameter(
                     description = "排序方式",
@@ -59,6 +60,7 @@ public class TeamTaskController {
                 teamId,
                 status,
                 priority,
+                keyword,
                 PageRequest.of(size, page, sortBy));
         return ResponseEntity.ok(ApiResponse.success("团队任务列表获取成功", response));
     }

@@ -52,4 +52,24 @@ public final class TaskSpecifications {
                 ? builder.conjunction()
                 : builder.equal(root.get("priority"), priority);
     }
+
+    public static Specification<Task> withKeyword(String keyword) {
+        return (root, query, builder) -> {
+            if (keyword == null || keyword.isBlank()) {
+                return builder.conjunction();
+            }
+
+            String pattern = "%" + keyword.trim().toLowerCase() + "%";
+            var team = root.join("team", JoinType.LEFT);
+            var owner = root.join("owner", JoinType.LEFT);
+            var assignee = root.join("assignee", JoinType.LEFT);
+            return builder.or(
+                    builder.like(builder.lower(root.get("title")), pattern),
+                    builder.like(builder.lower(root.get("description")), pattern),
+                    builder.like(builder.lower(team.get("name")), pattern),
+                    builder.like(builder.lower(owner.get("username")), pattern),
+                    builder.like(builder.lower(assignee.get("username")), pattern)
+            );
+        };
+    }
 }
