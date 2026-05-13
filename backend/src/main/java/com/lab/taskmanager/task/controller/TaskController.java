@@ -45,6 +45,7 @@ public class TaskController {
             @RequestParam(required = false, defaultValue = "10") Integer size,
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "updatedAt")
             @Parameter(description = "Ranking Criteria", 
                    example = "rank",
@@ -53,7 +54,7 @@ public class TaskController {
                    })) String sortBy,
             Principal principal) {
         PageRequest pageRequest = PageRequest.of(size, page, sortBy);
-        PageResult<TaskResponse> tasks = taskService.listTasks(principal.getName(), status, priority, pageRequest);
+        PageResult<TaskResponse> tasks = taskService.listTasks(principal.getName(), status, priority, keyword, pageRequest);
         return ResponseEntity.ok(ApiResponse.success("任务列表获取成功", tasks));
     }
 
@@ -124,6 +125,7 @@ public class TaskController {
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getFilteredTasks(
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "updatedAt")
             @Parameter(description = "Ranking Criteria", 
                    example = "rank",
@@ -131,7 +133,12 @@ public class TaskController {
                        "rank", "dueAt", "createdAt", "priority", "status", "updatedAt"
                    })) String sortBy,
             Principal principal) {
-        List<TaskResponse> filteredTasks = taskService.getFilteredTasks(principal.getName(), status, priority, SortBy.fromString(sortBy));
+        List<TaskResponse> filteredTasks = taskService.getFilteredTasks(
+                principal.getName(),
+                status,
+                priority,
+                keyword,
+                SortBy.fromString(sortBy));
         return ResponseEntity.ok(ApiResponse.success("筛选任务获取成功", filteredTasks));
     }
 }
