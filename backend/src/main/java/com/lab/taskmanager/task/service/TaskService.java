@@ -50,6 +50,7 @@ public class TaskService {
     private final TaskRankingService taskRankingService;
     private final TeamAuthorizationService teamAuthorizationService;
     private final TeamMembershipRepository teamMembershipRepository;
+    private final TaskDependencyService taskDependencyService;
 
     // ================= DashBoard Scope =================
     // Person tasks of current user and team tasks assigned to the current user
@@ -115,6 +116,9 @@ public class TaskService {
         Task task = taskRepository.findOne(TaskSpecifications.personalTaskOwnedBy(currentUser.getId())
                         .and(TaskSpecifications.withId(taskId)))
                 .orElseThrow(() -> findPersonalTaskFailure(currentUser.getId(), taskId));
+
+        checkPredecessorStatus(task.getStatus(), taskId, request.status());
+        
         applyTaskChanges(task, request.title(), request.description(), request.status(), request.priority(), request.dueAt());
         return toResponse(taskRepository.save(task), currentUser, null);
     }
@@ -125,6 +129,11 @@ public class TaskService {
         Task task = taskRepository.findOne(TaskSpecifications.personalTaskOwnedBy(currentUser.getId())
                         .and(TaskSpecifications.withId(taskId)))
                 .orElseThrow(() -> findPersonalTaskFailure(currentUser.getId(), taskId));
+        
+        // delete all dependency by taskId
+        // Caution: only when task have no successor tasks can be deleted
+        // deleteAllDependenciesByTaskId() will check whether this task has successor tasks
+        taskDependencyService.deleteAllDependenciesByTaskId(taskId);
         taskRepository.delete(task);
     }
 
@@ -191,6 +200,8 @@ public class TaskService {
         Task task = findTeamTaskOrThrow(teamId, taskId);
         User assignee = resolveTeamAssignee(teamId, request.assigneeId());
 
+        checkPredecessorStatus(task.getStatus(), taskId, request.status());
+
         applyTaskChanges(task, request.title(), request.description(), request.status(), request.priority(), request.dueAt());
         task.setAssignee(assignee);
         return toResponse(taskRepository.save(task), currentUser, membership);
@@ -211,6 +222,8 @@ public class TaskService {
             throw new ForbiddenOperationException("团队成员只能修改分配给自己的任务状态");
         }
 
+        checkPredecessorStatus(task.getStatus(), taskId, request.status());
+
         task.setStatus(request.status());
         return toResponse(taskRepository.save(task), currentUser, membership);
     }
@@ -220,9 +233,28 @@ public class TaskService {
         User currentUser = userService.findByUsernameOrThrow(username);
         teamAuthorizationService.requireAdminOrOwner(teamId, currentUser.getId());
         Task task = findTeamTaskOrThrow(teamId, taskId);
+        
+        // delete all dependency by taskId
+        // Caution: only when task have no successor tasks can be deleted
+        // deleteAllDependenciesByTaskId() will check whether this task has successor tasks
+        taskDependencyService.deleteAllDependenciesByTaskId(taskId);
         taskRepository.delete(task);
     }
 
+    // =================== Private Helper Methods ==================
+
+    private void checkPredecessorStatus(TaskStatus taskStatus, Long taskId, TaskStatus requestStatus) {
+        if (requestStatus == TaskStatus.DONE && taskStatus != TaskStatus.DONE) {
+            if (taskDependencyService.hasIncompletePredecessors(taskId)) {
+                List<Task> incomplete = taskDependencyService.getIncompletePredecessors(taskId);
+                String titles = incomplete.stream()
+                            .map(Task::getTitle)
+                            .collect(Collectors.joining("、"));
+                    throw new BusinessException("该任务存在未完成的前置任务：" + titles + "，请先完成这些任务");
+            }
+        }
+    }
+    
     private RuntimeException findPersonalTaskFailure(Long currentUserId, Long taskId) {
         return taskRepository.findById(taskId)
                 .filter(task -> task.getScope() == TaskScope.TEAM)
@@ -354,8 +386,8 @@ public class TaskService {
                 task.getTeam() == null ? null : task.getTeam().getName(),
                 task.getOwner().getId(),
                 task.getOwner().getUsername(),
-                task.getAssignee().getId(),
-                task.getAssignee().getUsername(),
+                task.getAssignee() == null ? null : task.getAssignee().getId(),
+                task.getAssignee() == null ? null : task.getAssignee().getUsername(),
                 canEditDetails,
                 canEditStatus,
                 canDelete);
