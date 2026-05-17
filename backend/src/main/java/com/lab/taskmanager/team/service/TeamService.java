@@ -225,6 +225,9 @@ public class TeamService {
     private void handleDepartedTask(Long teamId, User assignee) {
         List<Task> departedTask = taskRepository.findAllByTeamIdAndAssigneeId(teamId, assignee.getId());
         for(Task task : departedTask) {
+            if(task.getStatus() == TaskStatus.DONE){
+                continue;
+            }
             task.setAssignee(null);
             task.setStatus(TaskStatus.TODO);
             String description = task.getDescription();

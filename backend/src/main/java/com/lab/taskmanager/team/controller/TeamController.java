@@ -111,8 +111,15 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.success("团队角色更新成功", response));
     }
 
+    /**
+     * Remove member from team.
+     * @param teamId target team identifier
+     * @param userId target user identifier
+     * @param principal authenticated principal
+     * @return remove message
+     */
     @DeleteMapping("/{teamId}/members/{userId}")
-    @Operation(summary = "移除团队成员", description = "仅团队拥有者可移除 Member 或 Admin，移除成员的任务设置为未分配状态")
+    @Operation(summary = "移除团队成员", description = "仅团队拥有者可移除 Member 或 Admin，Admin 或 Member可以移除自己")
     public ResponseEntity<ApiResponse<Void>> removeMember(
         @PathVariable Long teamId,
         @PathVariable Long userId,

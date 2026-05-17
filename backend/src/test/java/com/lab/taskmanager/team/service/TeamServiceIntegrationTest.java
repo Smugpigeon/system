@@ -56,6 +56,9 @@ class TeamServiceIntegrationTest {
         Task task = taskRepository.save(task("Test Task", "Task for testing", TaskStatus.IN_PROGRESS,
             TaskPriority.MEDIUM, LocalDateTime.now().plusDays(1), TaskScope.TEAM,
             owner, team, member));
+        Task doneTask = taskRepository.save(task("Done Task", "Done Task for testing", TaskStatus.DONE,
+            TaskPriority.MEDIUM, LocalDateTime.now().plusDays(1), TaskScope.TEAM,
+            owner, team, member));
 
         // 只有Owner可以移除其他成员，其他成员只可以移除自己
         assertThrows(
@@ -78,6 +81,11 @@ class TeamServiceIntegrationTest {
 
         // 在任务描述中添加原本的分配信息
         assertTrue(updated.getDescription().contains("original assignee: member_user"));
+
+        // 已完成任务保留历史信息
+        Task updatedDone = taskRepository.findById(doneTask.getId()).orElseThrow();
+        assertEquals(TaskStatus.DONE, updatedDone.getStatus());
+        assertEquals("member_user", updatedDone.getAssignee().getUsername());
     }
 
     private User user(String username) {
