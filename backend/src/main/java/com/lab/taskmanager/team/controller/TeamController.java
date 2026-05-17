@@ -16,13 +16,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/teams")
@@ -115,5 +109,15 @@ public class TeamController {
             Principal principal) {
         TeamMemberResponse response = teamService.updateMemberRole(principal.getName(), teamId, userId, request);
         return ResponseEntity.ok(ApiResponse.success("团队角色更新成功", response));
+    }
+
+    @DeleteMapping("/{teamId}/members/{userId}")
+    @Operation(summary = "移除团队成员", description = "仅团队拥有者可移除 Member 或 Admin，移除成员的任务设置为未分配状态")
+    public ResponseEntity<ApiResponse<Void>> removeMember(
+        @PathVariable Long teamId,
+        @PathVariable Long userId,
+        Principal principal) {
+        teamService.removeMember(principal.getName(), teamId, userId);
+        return ResponseEntity.ok(ApiResponse.success("团队成员已移除"));
     }
 }
