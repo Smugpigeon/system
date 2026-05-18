@@ -1,8 +1,6 @@
 package com.lab.taskmanager.task.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -15,6 +13,19 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "task_dependencies_archive",
     uniqueConstraints = @UniqueConstraint(columnNames = {"predecessor_task_id", "successor_task_id"}))
-public class TaskDependencyArchive extends TaskDependency{
+public class TaskDependencyArchive{
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "task_dependency_id", nullable = false)
+    private Long taskDependencyId;
+
+    @Column(name = "predecessor_task_id", nullable = false)
+    private Long predecessorTaskId;
+
+    @Column(name = "successor_task_id", nullable = false)
+    private Long successorTaskId;
+
     private LocalDateTime archivedAt;
 }
