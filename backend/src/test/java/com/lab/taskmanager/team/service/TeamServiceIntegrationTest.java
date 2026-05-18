@@ -88,6 +88,30 @@ class TeamServiceIntegrationTest {
         assertEquals("member_user", updatedDone.getAssignee().getUsername());
     }
 
+    @Test
+    void disbandTeamTest() {
+        User owner = userRepository.save(user("owner_user"));
+        User admin = userRepository.save(user("admin_user"));
+        Team team = teamRepository.save(team("Alpha Team", owner));
+        TeamMembership ownerMembership = teamMembershipRepository.save(membership(team, owner, TeamRole.OWNER));
+        TeamMembership adminMembership = teamMembershipRepository.save(membership(team, admin, TeamRole.ADMIN));
+        Task task = taskRepository.save(task("Test Task", "Task for testing", TaskStatus.IN_PROGRESS,
+            TaskPriority.MEDIUM, LocalDateTime.now().plusDays(1), TaskScope.TEAM, owner, team, admin));
+
+        // 只有Owner可以解散团队
+        assertThrows(ForbiddenOperationException.class,
+            () -> teamService.disbandTeam("admin_user", team.getId()));
+
+        teamService.disbandTeam("admin_user", team.getId());
+
+        // 删除后团队空间无法访问
+        assertNull(teamRepository.findById(team.getId()).orElse(null));
+        assertNull(taskRepository.findById(task.getId()).orElse(null));
+        assertNull(teamMembershipRepository.findById(ownerMembership.getId()).orElse(null));
+        assertNull(teamMembershipRepository.findById(adminMembership.getId()).orElse(null));
+
+    }
+
     private User user(String username) {
         User user = new User();
         user.setUsername(username);
