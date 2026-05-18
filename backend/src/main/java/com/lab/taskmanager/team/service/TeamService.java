@@ -3,6 +3,8 @@ package com.lab.taskmanager.team.service;
 import com.lab.taskmanager.common.exception.BusinessException;
 import com.lab.taskmanager.common.exception.ForbiddenOperationException;
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
+import com.lab.taskmanager.task.entity.Task;
+import com.lab.taskmanager.task.entity.TaskStatus;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.team.dto.TeamCreateRequest;
 import com.lab.taskmanager.team.dto.TeamDetailResponse;
@@ -16,6 +18,7 @@ import com.lab.taskmanager.team.entity.TeamRole;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.repository.TeamRepository;
 import com.lab.taskmanager.user.entity.User;
+import com.lab.taskmanager.user.repository.UserRepository;
 import com.lab.taskmanager.user.service.UserService;
 import jakarta.validation.constraints.NotNull;
 import java.util.Comparator;
@@ -35,6 +38,7 @@ public class TeamService {
     private final TaskRepository taskRepository;
     private final TeamAuthorizationService teamAuthorizationService;
     private final UserService userService;
+    private final UserRepository userRepository;
 
     /**
      * Create a new team and automatically register the creator as OWNER.
@@ -165,6 +169,36 @@ public class TeamService {
         return toMemberResponse(savedMembership);
     }
 
+    /**
+     * Remove one member from the team. Only Owner can remove others, Admin or Member can remove themselves.
+     *
+     * @param username authenticated username
+     * @param teamId target team identifier
+     * @param targetUserId removed user identifier
+     */
+    @Transactional
+    public void removeMember(@NotNull String username, @NotNull Long teamId, @NotNull Long targetUserId) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
+        TeamMembership currentUserMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("当前用户不是团队成员"));
+        TeamMembership targetUserMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("团队成员不存在"));
+
+        if (targetUserMembership.getRole() == TeamRole.OWNER) {
+            throw new ForbiddenOperationException("不能移除团队拥有者");
+        } else if (currentUserMembership.getRole() == TeamRole.OWNER) {
+            closeMembership(teamId, targetUserId);
+            handleDepartedTask(teamId, targetUser);
+        } else if (currentUser.getId() == targetUserId){
+            closeMembership(teamId, targetUserId);
+            handleDepartedTask(teamId, targetUser);
+        } else {
+            throw new ForbiddenOperationException("只有Owner可以移除其他成员，Admin和Member只能移除自己");
+        }
+    }
+
     private TeamSummaryResponse toSummary(TeamMembership membership) {
         Team team = membership.getTeam();
         return new TeamSummaryResponse(
@@ -180,5 +214,26 @@ public class TeamService {
                 membership.getUser().getId(),
                 membership.getUser().getUsername(),
                 membership.getRole());
+    }
+
+    private void closeMembership(Long teamId, Long userId) {
+        TeamMembership target = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("团队成员不存在"));
+        teamMembershipRepository.delete(target);
+    }
+
+    private void handleDepartedTask(Long teamId, User assignee) {
+        List<Task> departedTask = taskRepository.findAllByTeamIdAndAssigneeId(teamId, assignee.getId());
+        for(Task task : departedTask) {
+            if(task.getStatus() == TaskStatus.DONE){
+                continue;
+            }
+            task.setAssignee(null);
+            task.setStatus(TaskStatus.TODO);
+            String description = task.getDescription();
+            description += "\n\noriginal assignee: " + assignee.getUsername();
+            task.setDescription(description);
+            taskRepository.save(task);
+        }
     }
 }

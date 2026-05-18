@@ -15,12 +15,15 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "tasks")
@@ -58,7 +61,15 @@ public class Task extends AuditableEntity {
     @JoinColumn(name = "team_id")
     private Team team;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "assignee_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
     private User assignee;
+
+    public boolean isAssigned() {
+        return assignee != null;
+    }
+
+    public boolean isUnassigned() {
+        return assignee == null;
+    }
 }
