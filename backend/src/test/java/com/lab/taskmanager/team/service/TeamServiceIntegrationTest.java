@@ -5,10 +5,13 @@ import com.lab.taskmanager.task.entity.Task;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
+import com.lab.taskmanager.task.repository.TaskArchiveRepository;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.team.entity.Team;
 import com.lab.taskmanager.team.entity.TeamMembership;
 import com.lab.taskmanager.team.entity.TeamRole;
+import com.lab.taskmanager.team.repository.TeamArchiveRepository;
+import com.lab.taskmanager.team.repository.TeamMembershipArchiveRepository;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.repository.TeamRepository;
 import com.lab.taskmanager.user.entity.User;
@@ -42,6 +45,13 @@ class TeamServiceIntegrationTest {
 
     @Autowired
     private TaskRepository taskRepository;
+
+    @Autowired
+    private TeamArchiveRepository teamArchiveRepository;
+    @Autowired
+    private TaskArchiveRepository taskArchiveRepository;
+    @Autowired
+    private TeamMembershipArchiveRepository teamMembershipArchiveRepository;
 
     @Test
     void removeMemberBehaviourTest() {
@@ -110,6 +120,13 @@ class TeamServiceIntegrationTest {
         assertNull(teamMembershipRepository.findById(ownerMembership.getId()).orElse(null));
         assertNull(teamMembershipRepository.findById(adminMembership.getId()).orElse(null));
 
+        // 删除后保留信息至存档库中
+        assertEquals("Alpha Team", teamArchiveRepository.findByTeamId(team.getId()).orElseThrow().getName());
+        assertEquals("Test Task", taskArchiveRepository.findByTaskId(task.getId()).orElseThrow().getTitle());
+        assertEquals(ownerMembership.getId(),
+            teamMembershipArchiveRepository.findByTeamMembershipId(ownerMembership.getId()).orElseThrow().getTeamMembershipId());
+        assertEquals(adminMembership.getId(),
+            teamMembershipArchiveRepository.findByTeamMembershipId(adminMembership.getId()).orElseThrow().getTeamMembershipId());
     }
 
     private User user(String username) {
