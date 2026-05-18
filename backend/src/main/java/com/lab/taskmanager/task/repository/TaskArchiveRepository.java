@@ -1,8 +1,11 @@
 package com.lab.taskmanager.task.repository;
 
-import com.lab.taskmanager.task.entity.Task;
+import com.lab.taskmanager.task.entity.TaskArchive;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface TaskArchiveRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
+import java.util.Optional;
+
+public interface TaskArchiveRepository extends JpaRepository<TaskArchive, Long>, JpaSpecificationExecutor<TaskArchive> {
+    Optional<TaskArchive> findByTaskId(Long id);
 }

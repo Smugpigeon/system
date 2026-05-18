@@ -1,7 +1,10 @@
 package com.lab.taskmanager.team.repository;
 
-import com.lab.taskmanager.team.entity.Team;
+import com.lab.taskmanager.team.entity.TeamArchive;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface TeamArchiveRepository extends JpaRepository<Team, Long> {
+import java.util.Optional;
+
+public interface TeamArchiveRepository extends JpaRepository<TeamArchive, Long> {
+    Optional<TeamArchive> findByTeamId(Long teamId);
 }
