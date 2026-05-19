@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface TeamArchiveRepository extends JpaRepository<TeamArchive, Long> {
-    Optional<TeamArchive> findByTeamId(Long teamId);
+    Optional<TeamArchive> findByOriginalTeamId(Long originalTeamId);
 }

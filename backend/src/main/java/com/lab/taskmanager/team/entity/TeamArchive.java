@@ -18,15 +18,14 @@ public class TeamArchive{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "team_id", nullable = false)
-    private Long teamId;
+    @Column(name = "original_team_id", nullable = false)
+    private Long originalTeamId;
 
     @Column(nullable = false, length = 80)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "owner_id", nullable = false)
-    private User owner;
+    private Long ownerId;
 
     private LocalDateTime archivedAt;
 }

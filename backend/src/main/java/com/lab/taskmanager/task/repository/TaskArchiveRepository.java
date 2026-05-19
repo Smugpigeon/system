@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.Optional;
 
 public interface TaskArchiveRepository extends JpaRepository<TaskArchive, Long>, JpaSpecificationExecutor<TaskArchive> {
-    Optional<TaskArchive> findByTaskId(Long id);
+    Optional<TaskArchive> findByOriginalTaskId(Long originalTaskId);
 }

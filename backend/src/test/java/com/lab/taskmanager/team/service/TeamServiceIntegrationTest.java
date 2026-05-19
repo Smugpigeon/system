@@ -116,12 +116,12 @@ class TeamServiceIntegrationTest {
         assertNull(teamMembershipRepository.findById(adminMembership.getId()).orElse(null));
 
         // 删除后保留信息至存档库中
-        assertEquals("Alpha Team", teamArchiveRepository.findByTeamId(team.getId()).orElseThrow().getName());
-        assertEquals("Test Task", taskArchiveRepository.findByTaskId(task.getId()).orElseThrow().getTitle());
+        assertEquals("Alpha Team", teamArchiveRepository.findByOriginalTeamId(team.getId()).orElseThrow().getName());
+        assertEquals("Test Task", taskArchiveRepository.findByOriginalTaskId(task.getId()).orElseThrow().getTitle());
         assertEquals(ownerMembership.getId(),
-            teamMembershipArchiveRepository.findByTeamMembershipId(ownerMembership.getId()).orElseThrow().getTeamMembershipId());
+            teamMembershipArchiveRepository.findByOriginalTeamMembershipId(ownerMembership.getId()).orElseThrow().getOriginalTeamMembershipId());
         assertEquals(adminMembership.getId(),
-            teamMembershipArchiveRepository.findByTeamMembershipId(adminMembership.getId()).orElseThrow().getTeamMembershipId());
+            teamMembershipArchiveRepository.findByOriginalTeamMembershipId(adminMembership.getId()).orElseThrow().getOriginalTeamMembershipId());
     }
 
     private User user(String username) {

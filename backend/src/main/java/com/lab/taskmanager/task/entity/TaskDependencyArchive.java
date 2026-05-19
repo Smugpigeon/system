@@ -17,8 +17,8 @@ public class TaskDependencyArchive{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "task_dependency_id", nullable = false)
-    private Long taskDependencyId;
+    @Column(name = "original_dependency_id", nullable = false)
+    private Long originalDependencyId;
 
     @Column(name = "predecessor_task_id", nullable = false)
     private Long predecessorTaskId;

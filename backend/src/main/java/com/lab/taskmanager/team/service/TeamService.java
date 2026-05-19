@@ -27,6 +27,8 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -216,83 +218,110 @@ public class TeamService {
      * @param teamId target team identifier
      */
     @Transactional
-    public void disbandTeam(@NotNull String username, @NotNull Long teamId) {
+    public void disbandTeam(String username, Long teamId) {
+
         User currentUser = userService.findByUsernameOrThrow(username);
-        TeamMembership ownerMembership = teamAuthorizationService.requireOwner(teamId, currentUser.getId());
+        TeamMembership ownerMembership =
+            teamAuthorizationService.requireOwner(teamId, currentUser.getId());
+
         Team team = ownerMembership.getTeam();
 
-        teamArchiveRepository.save(team2TeamArchive(team));
+        /* ========== 1. 归档 Team ========== */
+        teamArchiveRepository.save(toTeamArchive(team));
 
-        teamMembershipArchiveRepository.save(teamMembership2TeamMemberShipArchive(ownerMembership));
-        teamMembershipRepository.delete(ownerMembership);
+        /* ========== 2. 归档并删除 Task ========== */
+        List<Task> tasks = taskRepository.findAllByTeamId(teamId);
 
-        for (TeamMembership teamMembership : teamMembershipRepository.findAllByTeamId(teamId)) {
-            teamMembershipArchiveRepository.save(teamMembership2TeamMemberShipArchive(teamMembership));
-            teamMembershipRepository.delete(teamMembership);
-        }
+        for (Task task : tasks) {
 
+            // 2.1 先归档依赖
+            archiveTaskDependencies(task.getId());
 
-        for (Task task : taskRepository.findAllByTeamId(teamId)) {
-            taskArchiveRepository.save(task2TaskArchive(task));
+            // 2.2 再归档任务
+            taskArchiveRepository.save(toTaskArchive(task));
+
+            // 2.3 最后删除任务
             taskRepository.delete(task);
-
-            for (TaskDependency taskDependency : taskDependencyRepository.findAllByPredecessorTaskId(task.getId())) {
-                taskDependencyArchiveRepository.save(taskDependency2TaskDependencyArchive(taskDependency));
-                taskDependencyRepository.delete(taskDependency);
-            }
-
-            for (TaskDependency taskDependency : taskDependencyRepository.findAllBySuccessorTaskId(task.getId())) {
-                taskDependencyArchiveRepository.save(taskDependency2TaskDependencyArchive(taskDependency));
-                taskDependencyRepository.delete(taskDependency);
-            }
         }
 
+        /* ========== 3. 归档并删除 Memberships ========== */
+        List<TeamMembership> memberships =
+            teamMembershipRepository.findAllByTeamId(teamId);
+
+        for (TeamMembership membership : memberships) {
+            teamMembershipArchiveRepository.save(
+                toTeamMembershipArchive(membership));
+            teamMembershipRepository.delete(membership);
+        }
+
+        /* ========== 4. 删除 Team ========== */
         teamRepository.delete(team);
     }
 
-    private TeamArchive team2TeamArchive(Team team) {
+    private TeamMembershipArchive toTeamMembershipArchive(TeamMembership membership) {
+        TeamMembershipArchive archive = new TeamMembershipArchive();
+
+        archive.setOriginalTeamMembershipId(membership.getId());
+        archive.setTeamId(membership.getTeam().getId());
+        archive.setUserId(membership.getUser().getId());
+        archive.setRole(membership.getRole());
+        archive.setArchivedAt(LocalDateTime.now());
+
+        return archive;
+    }
+
+    private TeamArchive toTeamArchive(Team team) {
         TeamArchive teamArchive = new TeamArchive();
-        teamArchive.setTeamId(team.getId());
+
+        teamArchive.setOriginalTeamId(team.getId());
         teamArchive.setName(team.getName());
-        teamArchive.setOwner(team.getOwner());
+        teamArchive.setOwnerId(team.getOwner() != null ? team.getOwner().getId() : null);
         teamArchive.setArchivedAt(LocalDateTime.now());
+
         return teamArchive;
     }
 
-    private TeamMembershipArchive teamMembership2TeamMemberShipArchive(TeamMembership teamMembership) {
-        TeamMembershipArchive archive = new TeamMembershipArchive();
-        archive.setTeamMembershipId(teamMembership.getId());
-        archive.setTeam(teamMembership.getTeam());
-        archive.setUser(teamMembership.getUser());
-        archive.setRole(teamMembership.getRole());
+    private TaskArchive toTaskArchive(Task task) {
+        TaskArchive archive = new TaskArchive();
+
+        archive.setOriginalTaskId(task.getId());
+        archive.setTitle(task.getTitle());
+        archive.setDescription(task.getDescription());
+        archive.setStatus(task.getStatus());
+        archive.setPriority(task.getPriority());
+        archive.setDueAt(task.getDueAt());
+        archive.setScope(task.getScope());
+
+        archive.setTeamId(task.getTeam() != null ? task.getTeam().getId() : null);
+        archive.setOwnerId(task.getOwner() != null ? task.getOwner().getId() : null);
+        archive.setAssigneeId(task.getAssignee() != null ? task.getAssignee().getId() : null);
+
         archive.setArchivedAt(LocalDateTime.now());
         return archive;
     }
 
-    private TaskArchive task2TaskArchive(Task task) {
-        TaskArchive taskArchive = new TaskArchive();
-        taskArchive.setTaskId(task.getId());
-        taskArchive.setTitle(task.getTitle());
-        taskArchive.setDescription(task.getDescription());
-        taskArchive.setStatus(task.getStatus());
-        taskArchive.setPriority(task.getPriority());
-        taskArchive.setDueAt(task.getDueAt());
-        taskArchive.setScope(task.getScope());
-        taskArchive.setOwner(task.getOwner());
-        taskArchive.setTeam(task.getTeam());
-        taskArchive.setAssignee(task.getAssignee());
-        taskArchive.setArchivedAt(LocalDateTime.now());
-        return taskArchive;
-    }
+    private void archiveTaskDependencies(Long taskId) {
 
-    private TaskDependencyArchive taskDependency2TaskDependencyArchive(
-        TaskDependency taskDependency) {
-        TaskDependencyArchive archive = new TaskDependencyArchive();
-        archive.setTaskDependencyId(taskDependency.getId());
-        archive.setPredecessorTaskId(taskDependency.getPredecessorTaskId());
-        archive.setSuccessorTaskId(taskDependency.getSuccessorTaskId());
-        archive.setArchivedAt(LocalDateTime.now());
-        return archive;
+        List<TaskDependency> deps =
+            Stream.concat(
+                taskDependencyRepository
+                    .findAllByPredecessorTaskId(taskId)
+                    .stream(),
+                taskDependencyRepository
+                    .findAllBySuccessorTaskId(taskId)
+                    .stream()
+            ).distinct().toList();
+
+        for (TaskDependency dep : deps) {
+            TaskDependencyArchive archive = new TaskDependencyArchive();
+            archive.setOriginalDependencyId(dep.getId());
+            archive.setPredecessorTaskId(dep.getPredecessorTaskId());
+            archive.setSuccessorTaskId(dep.getSuccessorTaskId());
+            archive.setArchivedAt(LocalDateTime.now());
+
+            taskDependencyArchiveRepository.save(archive);
+            taskDependencyRepository.delete(dep);
+        }
     }
 
     private TeamSummaryResponse toSummary(TeamMembership membership) {

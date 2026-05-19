@@ -18,16 +18,14 @@ public class TeamMembershipArchive{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "team_membership_id", nullable = false)
-    private Long teamMembershipId;
+    @Column(name = "original_team_membership_id", nullable = false)
+    private Long originalTeamMembershipId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "team_id", nullable = false)
-    private Team team;
+    private Long teamId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private Long userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

@@ -21,8 +21,8 @@ public class TaskArchive{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "task_id", nullable = false)
-    private Long taskId;
+    @Column(name = "original_task_id", nullable = false)
+    private Long originalTaskId;
 
     @Column(nullable = false, length = 120)
     private String title;
@@ -44,17 +44,14 @@ public class TaskArchive{
     @Column(nullable = false, length = 20)
     private TaskScope scope;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "owner_id", nullable = false)
-    private User owner;
+    @Column(nullable = false, length = 20)
+    private Long ownerId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_id")
-    private Team team;
+    @Column(nullable = false, length = 20)
+    private Long teamId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assignee_id")
-    private User assignee;
+    @Column(nullable = false, length = 20)
+    private Long assigneeId;
 
     LocalDateTime archivedAt;
 }
