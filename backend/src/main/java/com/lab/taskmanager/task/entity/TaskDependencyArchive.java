@@ -11,8 +11,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "task_dependencies_archive",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"predecessor_task_id", "successor_task_id"}))
+@Table(name = "task_dependencies_archive")
 public class TaskDependencyArchive{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

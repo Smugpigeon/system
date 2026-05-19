@@ -33,19 +33,14 @@ class TeamServiceIntegrationTest {
 
     @Autowired
     private TeamService teamService;
-
     @Autowired
     private UserRepository userRepository;
-
     @Autowired
     private TeamRepository teamRepository;
-
     @Autowired
     private TeamMembershipRepository teamMembershipRepository;
-
     @Autowired
     private TaskRepository taskRepository;
-
     @Autowired
     private TeamArchiveRepository teamArchiveRepository;
     @Autowired
@@ -112,7 +107,7 @@ class TeamServiceIntegrationTest {
         assertThrows(ForbiddenOperationException.class,
             () -> teamService.disbandTeam("admin_user", team.getId()));
 
-        teamService.disbandTeam("admin_user", team.getId());
+        teamService.disbandTeam("owner_user", team.getId());
 
         // 删除后团队空间无法访问
         assertNull(teamRepository.findById(team.getId()).orElse(null));

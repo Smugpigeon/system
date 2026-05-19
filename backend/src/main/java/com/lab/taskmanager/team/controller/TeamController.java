@@ -127,4 +127,19 @@ public class TeamController {
         teamService.removeMember(principal.getName(), teamId, userId);
         return ResponseEntity.ok(ApiResponse.success("团队成员已移除"));
     }
+
+    /**
+     * Disband a team
+     * @param teamId target team identifier
+     * @param principal target user identifier
+     * @return disband message
+     */
+    @DeleteMapping("/{teamId}")
+    @Operation(summary = "解散团队", description = "仅 Owner 可解散团队，解散后普通团队空间不能继续访问")
+    public ResponseEntity<ApiResponse<Void>> disbandTeam(
+        @PathVariable Long teamId,
+        Principal principal) {
+        teamService.disbandTeam(principal.getName(), teamId);
+        return ResponseEntity.ok(ApiResponse.success("团队已解散"));
+    }
 }

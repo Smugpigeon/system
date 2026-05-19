@@ -12,10 +12,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(
-    name = "team_memberships_archive",
-    uniqueConstraints = @UniqueConstraint(name = "uk_team_membership", columnNames = {"team_id", "user_id"})
-)
+@Table(name = "team_memberships_archive")
 public class TeamMembershipArchive{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

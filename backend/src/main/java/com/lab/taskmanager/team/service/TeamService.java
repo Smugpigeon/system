@@ -3,8 +3,10 @@ package com.lab.taskmanager.team.service;
 import com.lab.taskmanager.common.exception.BusinessException;
 import com.lab.taskmanager.common.exception.ForbiddenOperationException;
 import com.lab.taskmanager.common.exception.ResourceNotFoundException;
-import com.lab.taskmanager.task.entity.Task;
-import com.lab.taskmanager.task.entity.TaskStatus;
+import com.lab.taskmanager.task.entity.*;
+import com.lab.taskmanager.task.repository.TaskArchiveRepository;
+import com.lab.taskmanager.task.repository.TaskDependencyArchiveRepository;
+import com.lab.taskmanager.task.repository.TaskDependencyRepository;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.team.dto.TeamCreateRequest;
 import com.lab.taskmanager.team.dto.TeamDetailResponse;
@@ -12,15 +14,17 @@ import com.lab.taskmanager.team.dto.TeamMemberAddRequest;
 import com.lab.taskmanager.team.dto.TeamMemberResponse;
 import com.lab.taskmanager.team.dto.TeamRoleUpdateRequest;
 import com.lab.taskmanager.team.dto.TeamSummaryResponse;
-import com.lab.taskmanager.team.entity.Team;
-import com.lab.taskmanager.team.entity.TeamMembership;
-import com.lab.taskmanager.team.entity.TeamRole;
+import com.lab.taskmanager.team.entity.*;
+import com.lab.taskmanager.team.repository.TeamArchiveRepository;
+import com.lab.taskmanager.team.repository.TeamMembershipArchiveRepository;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.repository.TeamRepository;
 import com.lab.taskmanager.user.entity.User;
 import com.lab.taskmanager.user.repository.UserRepository;
 import com.lab.taskmanager.user.service.UserService;
 import jakarta.validation.constraints.NotNull;
+
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +43,11 @@ public class TeamService {
     private final TeamAuthorizationService teamAuthorizationService;
     private final UserService userService;
     private final UserRepository userRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
+    private final TeamMembershipArchiveRepository teamMembershipArchiveRepository;
+    private final TeamArchiveRepository teamArchiveRepository;
+    private final TaskArchiveRepository taskArchiveRepository;
+    private final TaskDependencyArchiveRepository taskDependencyArchiveRepository;
 
     /**
      * Create a new team and automatically register the creator as OWNER.
@@ -197,6 +206,93 @@ public class TeamService {
         } else {
             throw new ForbiddenOperationException("只有Owner可以移除其他成员，Admin和Member只能移除自己");
         }
+    }
+
+    /**
+     * Disband an active team. Only Owner can disband the team, and the team space will be inaccessible after disbanding.
+     * All related data will be deleted and archived for potential future audit.
+     *
+     * @param username authenticated username
+     * @param teamId target team identifier
+     */
+    @Transactional
+    public void disbandTeam(@NotNull String username, @NotNull Long teamId) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        TeamMembership ownerMembership = teamAuthorizationService.requireOwner(teamId, currentUser.getId());
+        Team team = ownerMembership.getTeam();
+
+        teamArchiveRepository.save(team2TeamArchive(team));
+
+        teamMembershipArchiveRepository.save(teamMembership2TeamMemberShipArchive(ownerMembership));
+        teamMembershipRepository.delete(ownerMembership);
+
+        for (TeamMembership teamMembership : teamMembershipRepository.findAllByTeamId(teamId)) {
+            teamMembershipArchiveRepository.save(teamMembership2TeamMemberShipArchive(teamMembership));
+            teamMembershipRepository.delete(teamMembership);
+        }
+
+
+        for (Task task : taskRepository.findAllByTeamId(teamId)) {
+            taskArchiveRepository.save(task2TaskArchive(task));
+            taskRepository.delete(task);
+
+            for (TaskDependency taskDependency : taskDependencyRepository.findAllByPredecessorTaskId(task.getId())) {
+                taskDependencyArchiveRepository.save(taskDependency2TaskDependencyArchive(taskDependency));
+                taskDependencyRepository.delete(taskDependency);
+            }
+
+            for (TaskDependency taskDependency : taskDependencyRepository.findAllBySuccessorTaskId(task.getId())) {
+                taskDependencyArchiveRepository.save(taskDependency2TaskDependencyArchive(taskDependency));
+                taskDependencyRepository.delete(taskDependency);
+            }
+        }
+
+        teamRepository.delete(team);
+    }
+
+    private TeamArchive team2TeamArchive(Team team) {
+        TeamArchive teamArchive = new TeamArchive();
+        teamArchive.setTeamId(team.getId());
+        teamArchive.setName(team.getName());
+        teamArchive.setOwner(team.getOwner());
+        teamArchive.setArchivedAt(LocalDateTime.now());
+        return teamArchive;
+    }
+
+    private TeamMembershipArchive teamMembership2TeamMemberShipArchive(TeamMembership teamMembership) {
+        TeamMembershipArchive archive = new TeamMembershipArchive();
+        archive.setTeamMembershipId(teamMembership.getId());
+        archive.setTeam(teamMembership.getTeam());
+        archive.setUser(teamMembership.getUser());
+        archive.setRole(teamMembership.getRole());
+        archive.setArchivedAt(LocalDateTime.now());
+        return archive;
+    }
+
+    private TaskArchive task2TaskArchive(Task task) {
+        TaskArchive taskArchive = new TaskArchive();
+        taskArchive.setTaskId(task.getId());
+        taskArchive.setTitle(task.getTitle());
+        taskArchive.setDescription(task.getDescription());
+        taskArchive.setStatus(task.getStatus());
+        taskArchive.setPriority(task.getPriority());
+        taskArchive.setDueAt(task.getDueAt());
+        taskArchive.setScope(task.getScope());
+        taskArchive.setOwner(task.getOwner());
+        taskArchive.setTeam(task.getTeam());
+        taskArchive.setAssignee(task.getAssignee());
+        taskArchive.setArchivedAt(LocalDateTime.now());
+        return taskArchive;
+    }
+
+    private TaskDependencyArchive taskDependency2TaskDependencyArchive(
+        TaskDependency taskDependency) {
+        TaskDependencyArchive archive = new TaskDependencyArchive();
+        archive.setTaskDependencyId(taskDependency.getId());
+        archive.setPredecessorTaskId(taskDependency.getPredecessorTaskId());
+        archive.setSuccessorTaskId(taskDependency.getSuccessorTaskId());
+        archive.setArchivedAt(LocalDateTime.now());
+        return archive;
     }
 
     private TeamSummaryResponse toSummary(TeamMembership membership) {

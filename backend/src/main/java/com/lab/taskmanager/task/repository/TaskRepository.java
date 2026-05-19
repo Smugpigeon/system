@@ -5,6 +5,8 @@ import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import java.util.List;
 import java.util.Optional;
+
+import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -37,4 +39,6 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     long countByTeamId(Long teamId);
 
     List<Task> findAllByTeamIdAndAssigneeId(Long teamId, Long assigneeId);
+
+    List<Task> findAllByTeamId(Long teamId);
 }
