@@ -129,13 +129,13 @@ public class TeamController {
     }
 
     /**
-     * Disband a team
+     * Disband a team, information of the team will be archived but the team space will be inaccessible.
      * @param teamId target team identifier
      * @param principal target user identifier
      * @return disband message
      */
     @DeleteMapping("/{teamId}")
-    @Operation(summary = "解散团队", description = "仅 Owner 可解散团队，解散后普通团队空间不能继续访问")
+    @Operation(summary = "解散团队", description = "仅 Owner 可解散团队，解散后普通团队空间不能继续访问, 团队相关信息将留档")
     public ResponseEntity<ApiResponse<Void>> disbandTeam(
         @PathVariable Long teamId,
         Principal principal) {

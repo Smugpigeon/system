@@ -226,10 +226,10 @@ public class TeamService {
 
         Team team = ownerMembership.getTeam();
 
-        /* ========== 1. 归档 Team ========== */
+        // 1. 归档 Team
         teamArchiveRepository.save(toTeamArchive(team));
 
-        /* ========== 2. 归档并删除 Task ========== */
+        // 2. 归档并删除 Task
         List<Task> tasks = taskRepository.findAllByTeamId(teamId);
 
         for (Task task : tasks) {
@@ -244,7 +244,7 @@ public class TeamService {
             taskRepository.delete(task);
         }
 
-        /* ========== 3. 归档并删除 Memberships ========== */
+        // 3. 归档并删除 Memberships
         List<TeamMembership> memberships =
             teamMembershipRepository.findAllByTeamId(teamId);
 
@@ -254,7 +254,7 @@ public class TeamService {
             teamMembershipRepository.delete(membership);
         }
 
-        /* ========== 4. 删除 Team ========== */
+        // 4. 删除 Team
         teamRepository.delete(team);
     }
 
