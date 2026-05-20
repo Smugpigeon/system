@@ -134,6 +134,30 @@ class TeamServiceIntegrationTest {
             teamMembershipArchiveRepository.findByOriginalTeamMembershipId(adminMembership.getId()).orElseThrow().getOriginalTeamMembershipId());
     }
 
+    @Test
+    public void ownerLeaveTest() {
+        User owner = userRepository.save(user("owner_user"));
+        User admin = userRepository.save(user("admin_user"));
+        Team team = teamRepository.save(team("Alpha Team", owner));
+        TeamMembership ownerMembership = membership(team, owner, TeamRole.OWNER);
+        TeamMembership adminMembership = membership(team, admin, TeamRole.ADMIN);
+
+        // 当团队还有其它成员时，必须指定新的Owner
+        assertThrows(ForbiddenOperationException.class,
+            () -> teamService.ownerLeaveTeam("owner_user", team.getId(), null)
+        );
+
+        // 指定新的Owner, 删除旧的Owne权限
+        teamService.ownerLeaveTeam("owner_user", team.getId(), admin.getId());
+        assertEquals(TeamRole.OWNER, teamMembershipRepository.findById(adminMembership.getId()).orElseThrow().getRole());
+        assertNull(teamMembershipRepository.findById(ownerMembership.getId()).orElse(null));
+
+        // 如果团队没有其它成员，则自动解散团队
+        teamService.ownerLeaveTeam("admin_user", team.getId(), null);
+        assertEquals(0, teamRepository.findAll().size());
+        assertEquals(0, teamMembershipRepository.findAll().size());
+    }
+
     private TaskDependency taskDependency(Task task1, Task task2) {
         TaskDependency dependency = new TaskDependency();
         dependency.setPredecessorTaskId(task1.getId());
