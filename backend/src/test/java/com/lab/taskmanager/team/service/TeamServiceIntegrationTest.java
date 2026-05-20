@@ -139,8 +139,8 @@ class TeamServiceIntegrationTest {
         User owner = userRepository.save(user("owner_user"));
         User admin = userRepository.save(user("admin_user"));
         Team team = teamRepository.save(team("Alpha Team", owner));
-        TeamMembership ownerMembership = membership(team, owner, TeamRole.OWNER);
-        TeamMembership adminMembership = membership(team, admin, TeamRole.ADMIN);
+        TeamMembership ownerMembership = teamMembershipRepository.save(membership(team, owner, TeamRole.OWNER));
+        TeamMembership adminMembership = teamMembershipRepository.save(membership(team, admin, TeamRole.ADMIN));
 
         // 当团队还有其它成员时，必须指定新的Owner
         assertThrows(ForbiddenOperationException.class,
