@@ -258,6 +258,41 @@ public class TeamService {
         teamRepository.delete(team);
     }
 
+    @Transactional
+    public void ownerLeaveTeam(String username, Long teamId, Long newOwnerId) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        teamAuthorizationService.requireOwner(teamId, currentUser.getId());
+
+        if(newOwnerId == null){
+            if(hasNonOwnerMembers(teamId)){
+                // 还有其它成员，必须指定新的Owner
+                throw new ForbiddenOperationException("需要指定新的Owner");
+            } else {
+                // 没有其它团队成员，自动解散团队
+                disbandTeam(username, teamId);
+            }
+        } else {
+            TeamMembership newOwnerMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, newOwnerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("新的Owner必须是团队成员"));
+            if (newOwnerMembership.getRole() == TeamRole.OWNER) {
+                throw new ForbiddenOperationException("不能指定自己为新的Owner");
+            }
+
+            // 删除旧Owner权限
+            closeMembership(teamId, currentUser.getId());
+
+            // 更新新Owner权限
+            newOwnerMembership.setRole(TeamRole.OWNER);
+            teamMembershipRepository.save(newOwnerMembership);
+        }
+    }
+
+    private boolean hasNonOwnerMembers(Long teamId) {
+        return teamMembershipRepository.findAllByTeamId(teamId)
+            .stream()
+            .anyMatch(membership -> membership.getRole() != TeamRole.OWNER);
+    }
+
     private TeamMembershipArchive toTeamMembershipArchive(TeamMembership membership) {
         TeamMembershipArchive archive = new TeamMembershipArchive();
 
