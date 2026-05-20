@@ -142,4 +142,27 @@ public class TeamController {
         teamService.disbandTeam(principal.getName(), teamId);
         return ResponseEntity.ok(ApiResponse.success("团队已解散"));
     }
+
+    /**
+     * Owner voluntarily leaves the team.
+     * - If no other members exist, the team is automatically disbanded.
+     * - Otherwise, a new owner must be specified.
+     */
+    @PostMapping("/{teamId}/owner-leave")
+    @Operation(summary = "Owner 离开团队", description =
+        """
+        Owner 主动离开团队：
+        • 若团队还有其他成员，必须指定新 Owner；
+        • 若团队仅剩 Owner，则自动解散团队。
+        """
+    )
+    public ResponseEntity<ApiResponse<Void>> ownerLeaveTeam(
+        @PathVariable Long teamId,
+        @RequestParam(required = false) Long newOwnerId,
+        Principal principal) {
+
+        teamService.ownerLeaveTeam(principal.getName(), teamId, newOwnerId);
+
+        return ResponseEntity.ok(ApiResponse.success("Owner 已离开团队"));
+    }
 }
