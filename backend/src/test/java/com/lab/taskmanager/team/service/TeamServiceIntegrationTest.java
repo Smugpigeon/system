@@ -1,14 +1,16 @@
 package com.lab.taskmanager.team.service;
 
 import com.lab.taskmanager.common.exception.ForbiddenOperationException;
-import com.lab.taskmanager.task.entity.Task;
-import com.lab.taskmanager.task.entity.TaskPriority;
-import com.lab.taskmanager.task.entity.TaskScope;
-import com.lab.taskmanager.task.entity.TaskStatus;
+import com.lab.taskmanager.task.entity.*;
+import com.lab.taskmanager.task.repository.TaskArchiveRepository;
+import com.lab.taskmanager.task.repository.TaskDependencyArchiveRepository;
+import com.lab.taskmanager.task.repository.TaskDependencyRepository;
 import com.lab.taskmanager.task.repository.TaskRepository;
 import com.lab.taskmanager.team.entity.Team;
 import com.lab.taskmanager.team.entity.TeamMembership;
 import com.lab.taskmanager.team.entity.TeamRole;
+import com.lab.taskmanager.team.repository.TeamArchiveRepository;
+import com.lab.taskmanager.team.repository.TeamMembershipArchiveRepository;
 import com.lab.taskmanager.team.repository.TeamMembershipRepository;
 import com.lab.taskmanager.team.repository.TeamRepository;
 import com.lab.taskmanager.user.entity.User;
@@ -30,18 +32,24 @@ class TeamServiceIntegrationTest {
 
     @Autowired
     private TeamService teamService;
-
     @Autowired
     private UserRepository userRepository;
-
     @Autowired
     private TeamRepository teamRepository;
-
     @Autowired
     private TeamMembershipRepository teamMembershipRepository;
-
     @Autowired
     private TaskRepository taskRepository;
+    @Autowired
+    private TeamArchiveRepository teamArchiveRepository;
+    @Autowired
+    private TaskArchiveRepository taskArchiveRepository;
+    @Autowired
+    private TeamMembershipArchiveRepository teamMembershipArchiveRepository;
+    @Autowired
+    private TaskDependencyRepository taskDependencyRepository;
+    @Autowired
+    private TaskDependencyArchiveRepository taskDependencyArchiveRepository;
 
     @Test
     void removeMemberBehaviourTest() {
@@ -86,6 +94,51 @@ class TeamServiceIntegrationTest {
         Task updatedDone = taskRepository.findById(doneTask.getId()).orElseThrow();
         assertEquals(TaskStatus.DONE, updatedDone.getStatus());
         assertEquals("member_user", updatedDone.getAssignee().getUsername());
+    }
+
+    @Test
+    void disbandTeamTest() {
+        User owner = userRepository.save(user("owner_user"));
+        User admin = userRepository.save(user("admin_user"));
+        Team team = teamRepository.save(team("Alpha Team", owner));
+        TeamMembership ownerMembership = teamMembershipRepository.save(membership(team, owner, TeamRole.OWNER));
+        TeamMembership adminMembership = teamMembershipRepository.save(membership(team, admin, TeamRole.ADMIN));
+        Task task1 = taskRepository.save(task("Test Task1", "Task1 for testing", TaskStatus.IN_PROGRESS,
+            TaskPriority.MEDIUM, LocalDateTime.now().plusDays(1), TaskScope.TEAM, owner, team, admin));
+        Task task2 = taskRepository.save(task("Test Task2", "Task2 for testing", TaskStatus.DONE,
+            TaskPriority.MEDIUM, LocalDateTime.now().plusDays(1), TaskScope.TEAM, owner, team, admin));
+        TaskDependency dependency = taskDependencyRepository.save(taskDependency(task1, task2));
+
+        // 只有Owner可以解散团队
+        assertThrows(ForbiddenOperationException.class,
+            () -> teamService.disbandTeam("admin_user", team.getId()));
+
+        teamService.disbandTeam("owner_user", team.getId());
+
+        // 删除后团队空间无法访问
+        assertNull(teamRepository.findById(team.getId()).orElse(null));
+        assertNull(taskRepository.findById(task1.getId()).orElse(null));
+        assertNull(taskRepository.findById(task2.getId()).orElse(null));
+        assertNull(taskDependencyRepository.findById(dependency.getId()).orElse(null));
+        assertNull(teamMembershipRepository.findById(ownerMembership.getId()).orElse(null));
+        assertNull(teamMembershipRepository.findById(adminMembership.getId()).orElse(null));
+
+        // 删除后保留信息至存档库中
+        assertEquals("Alpha Team", teamArchiveRepository.findByOriginalTeamId(team.getId()).orElseThrow().getName());
+        assertEquals("Test Task1", taskArchiveRepository.findByOriginalTaskId(task1.getId()).orElseThrow().getTitle());
+        assertEquals("Task2 for testing", taskArchiveRepository.findByOriginalTaskId(task2.getId()).orElseThrow().getDescription());
+        assertEquals(1, taskDependencyArchiveRepository.findAll().size());
+        assertEquals(ownerMembership.getId(),
+            teamMembershipArchiveRepository.findByOriginalTeamMembershipId(ownerMembership.getId()).orElseThrow().getOriginalTeamMembershipId());
+        assertEquals(adminMembership.getId(),
+            teamMembershipArchiveRepository.findByOriginalTeamMembershipId(adminMembership.getId()).orElseThrow().getOriginalTeamMembershipId());
+    }
+
+    private TaskDependency taskDependency(Task task1, Task task2) {
+        TaskDependency dependency = new TaskDependency();
+        dependency.setPredecessorTaskId(task1.getId());
+        dependency.setSuccessorTaskId(task2.getId());
+        return dependency;
     }
 
     private User user(String username) {
