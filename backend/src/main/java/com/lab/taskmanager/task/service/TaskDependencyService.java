@@ -51,6 +51,7 @@ public class TaskDependencyService {
         validateDependencyCompatibility(successorTask, predecessorTask);
         validateDuplicateDependency(taskId, predecessorTaskId);
         validateNoCycle(predecessorTaskId, taskId);
+        validateDoneTaskDoesNotDependOnUnfinishedTask(successorTask, predecessorTask);
         
         TaskDependency dependency = new TaskDependency();
         dependency.setPredecessorTaskId(predecessorTaskId);
@@ -166,6 +167,12 @@ public class TaskDependencyService {
             if (!successor.getTeam().getId().equals(predecessor.getTeam().getId())) {
                 throw new BusinessException("团队任务只能依赖同一团队的其它任务");
             }
+        }
+    }
+
+    private void validateDoneTaskDoesNotDependOnUnfinishedTask(Task successor, Task predecessor) {
+        if (successor.getStatus() == TaskStatus.DONE && predecessor.getStatus() != TaskStatus.DONE) {
+            throw new BusinessException("已完成任务不能添加未完成的前置任务");
         }
     }
 

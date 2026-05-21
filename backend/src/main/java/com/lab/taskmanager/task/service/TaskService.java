@@ -73,12 +73,16 @@ public class TaskService {
             @Nullable String keyword,
             @NotNull PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
+        Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
         Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(currentUser.getId())
                 .and(TaskSpecifications.withStatus(status))
                 .and(TaskSpecifications.withPriority(priority))
                 .and(TaskSpecifications.withKeyword(keyword));
-        List<Task> tasks = taskRepository.findAll(specification);
-        Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
+        List<Task> tasks = taskRepository.findAll(specification)
+                .stream()
+                .filter(task -> task.getScope() == TaskScope.PERSONAL
+                        || membershipIndex.containsKey(taskTeamId(task)))
+                .toList();
         return paginateAndMap(
                 sortTasks(tasks, pageRequest.sortBy()),
                 pageRequest,
@@ -92,7 +96,11 @@ public class TaskService {
                         .and(TaskSpecifications.withId(taskId)))
                 .orElseThrow(() -> new ResourceNotFoundException("任务不存在，或你无权访问该任务"));
         Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
-        return toResponse(task, currentUser, membershipIndex.get(taskTeamId(task)));
+        TeamMembership membership = membershipIndex.get(taskTeamId(task));
+        if (task.getScope() == TaskScope.TEAM && membership == null) {
+            throw new ResourceNotFoundException("任务不存在，或你无权访问该任务");
+        }
+        return toResponse(task, currentUser, membership);
     }
 
     @Transactional
@@ -218,7 +226,7 @@ public class TaskService {
         Task task = findTeamTaskOrThrow(teamId, taskId);
 
         if (membership.getRole() == TeamRole.MEMBER
-                && !Objects.equals(task.getAssignee().getId(), currentUser.getId())) {
+                && (task.getAssignee() == null || !Objects.equals(task.getAssignee().getId(), currentUser.getId()))) {
             throw new ForbiddenOperationException("团队成员只能修改分配给自己的任务状态");
         }
 
