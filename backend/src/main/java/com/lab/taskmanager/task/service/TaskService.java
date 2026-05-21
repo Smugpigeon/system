@@ -50,6 +50,10 @@ public class TaskService {
     private final TaskRankingService taskRankingService;
     private final TeamAuthorizationService teamAuthorizationService;
     private final TeamMembershipRepository teamMembershipRepository;
+    private final TaskDependencyService taskDependencyService;
+
+    // ================= DashBoard Scope =================
+    // Person tasks of current user and team tasks assigned to the current user
 
     /**
      * Return the current user's personal tasks together with team tasks assigned to them.
@@ -57,6 +61,7 @@ public class TaskService {
      * @param username authenticated username
      * @param status optional status filter
      * @param priority optional priority filter
+     * @param keyword optional keyword filter
      * @param pageRequest pagination and sorting request
      * @return paged dashboard tasks
      */
@@ -65,11 +70,13 @@ public class TaskService {
             @NotNull String username,
             @Nullable TaskStatus status,
             @Nullable TaskPriority priority,
+            @Nullable String keyword,
             @NotNull PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
         Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(currentUser.getId())
                 .and(TaskSpecifications.withStatus(status))
-                .and(TaskSpecifications.withPriority(priority));
+                .and(TaskSpecifications.withPriority(priority))
+                .and(TaskSpecifications.withKeyword(keyword));
         List<Task> tasks = taskRepository.findAll(specification);
         Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
         return paginateAndMap(
@@ -109,6 +116,9 @@ public class TaskService {
         Task task = taskRepository.findOne(TaskSpecifications.personalTaskOwnedBy(currentUser.getId())
                         .and(TaskSpecifications.withId(taskId)))
                 .orElseThrow(() -> findPersonalTaskFailure(currentUser.getId(), taskId));
+
+        checkPredecessorStatus(task.getStatus(), taskId, request.status());
+        
         applyTaskChanges(task, request.title(), request.description(), request.status(), request.priority(), request.dueAt());
         return toResponse(taskRepository.save(task), currentUser, null);
     }
@@ -119,8 +129,15 @@ public class TaskService {
         Task task = taskRepository.findOne(TaskSpecifications.personalTaskOwnedBy(currentUser.getId())
                         .and(TaskSpecifications.withId(taskId)))
                 .orElseThrow(() -> findPersonalTaskFailure(currentUser.getId(), taskId));
+        
+        // delete all dependency by taskId
+        // Caution: only when task have no successor tasks can be deleted
+        // deleteAllDependenciesByTaskId() will check whether this task has successor tasks
+        taskDependencyService.deleteAllDependenciesByTaskId(taskId);
         taskRepository.delete(task);
     }
+
+    // ================= Team Tasks Scope =================
 
     @Transactional(readOnly = true)
     public PageResult<TaskResponse> listTeamTasks(
@@ -128,12 +145,14 @@ public class TaskService {
             @NotNull Long teamId,
             @Nullable TaskStatus status,
             @Nullable TaskPriority priority,
+            @Nullable String keyword,
             @NotNull PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
         TeamMembership membership = teamAuthorizationService.requireMembership(teamId, currentUser.getId());
         Specification<Task> specification = TaskSpecifications.teamTasks(teamId)
                 .and(TaskSpecifications.withStatus(status))
-                .and(TaskSpecifications.withPriority(priority));
+                .and(TaskSpecifications.withPriority(priority))
+                .and(TaskSpecifications.withKeyword(keyword));
         List<Task> tasks = taskRepository.findAll(specification);
         return paginateAndMap(
                 sortTasks(tasks, pageRequest.sortBy()),
@@ -181,6 +200,8 @@ public class TaskService {
         Task task = findTeamTaskOrThrow(teamId, taskId);
         User assignee = resolveTeamAssignee(teamId, request.assigneeId());
 
+        checkPredecessorStatus(task.getStatus(), taskId, request.status());
+
         applyTaskChanges(task, request.title(), request.description(), request.status(), request.priority(), request.dueAt());
         task.setAssignee(assignee);
         return toResponse(taskRepository.save(task), currentUser, membership);
@@ -201,6 +222,8 @@ public class TaskService {
             throw new ForbiddenOperationException("团队成员只能修改分配给自己的任务状态");
         }
 
+        checkPredecessorStatus(task.getStatus(), taskId, request.status());
+
         task.setStatus(request.status());
         return toResponse(taskRepository.save(task), currentUser, membership);
     }
@@ -210,31 +233,28 @@ public class TaskService {
         User currentUser = userService.findByUsernameOrThrow(username);
         teamAuthorizationService.requireAdminOrOwner(teamId, currentUser.getId());
         Task task = findTeamTaskOrThrow(teamId, taskId);
+        
+        // delete all dependency by taskId
+        // Caution: only when task have no successor tasks can be deleted
+        // deleteAllDependenciesByTaskId() will check whether this task has successor tasks
+        taskDependencyService.deleteAllDependenciesByTaskId(taskId);
         taskRepository.delete(task);
     }
 
-    @Transactional(readOnly = true)
-    public PageResult<TaskResponse> page(@NotNull PageRequest pageRequest, @NotNull String username) {
-        return listTasks(username, null, null, pageRequest);
-    }
+    // =================== Private Helper Methods ==================
 
-    @Transactional(readOnly = true)
-    public List<TaskResponse> getFilteredTasks(
-            @NotNull String username,
-            @Nullable TaskStatus status,
-            @Nullable TaskPriority priority,
-            @Nullable SortBy sortBy) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(currentUser.getId())
-                .and(TaskSpecifications.withStatus(status))
-                .and(TaskSpecifications.withPriority(priority));
-        List<Task> tasks = sortTasks(taskRepository.findAll(specification), sortBy);
-        Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
-        return tasks.stream()
-                .map(task -> toResponse(task, currentUser, membershipIndex.get(taskTeamId(task))))
-                .toList();
+    private void checkPredecessorStatus(TaskStatus taskStatus, Long taskId, TaskStatus requestStatus) {
+        if (requestStatus == TaskStatus.DONE && taskStatus != TaskStatus.DONE) {
+            if (taskDependencyService.hasIncompletePredecessors(taskId)) {
+                List<Task> incomplete = taskDependencyService.getIncompletePredecessors(taskId);
+                String titles = incomplete.stream()
+                            .map(Task::getTitle)
+                            .collect(Collectors.joining("、"));
+                    throw new BusinessException("该任务存在未完成的前置任务：" + titles + "，请先完成这些任务");
+            }
+        }
     }
-
+    
     private RuntimeException findPersonalTaskFailure(Long currentUserId, Long taskId) {
         return taskRepository.findById(taskId)
                 .filter(task -> task.getScope() == TaskScope.TEAM)
@@ -335,9 +355,10 @@ public class TaskService {
     }
 
     private TaskResponse toResponse(Task task, User currentUser, TeamMembership teamMembership) {
-        boolean canEditDetails = task.getScope() == TaskScope.PERSONAL;
-        boolean canEditStatus = task.getScope() == TaskScope.PERSONAL;
-        boolean canDelete = task.getScope() == TaskScope.PERSONAL;
+        boolean isPersonal = task.getScope() == TaskScope.PERSONAL;
+        boolean canEditDetails = isPersonal;
+        boolean canEditStatus = isPersonal;
+        boolean canDelete = isPersonal;
 
         if (task.getScope() == TaskScope.TEAM && teamMembership != null) {
             if (teamMembership.getRole() == TeamRole.OWNER || teamMembership.getRole() == TeamRole.ADMIN) {
@@ -365,8 +386,8 @@ public class TaskService {
                 task.getTeam() == null ? null : task.getTeam().getName(),
                 task.getOwner().getId(),
                 task.getOwner().getUsername(),
-                task.getAssignee().getId(),
-                task.getAssignee().getUsername(),
+                task.getAssignee() == null ? null : task.getAssignee().getId(),
+                task.getAssignee() == null ? null : task.getAssignee().getUsername(),
                 canEditDetails,
                 canEditStatus,
                 canDelete);

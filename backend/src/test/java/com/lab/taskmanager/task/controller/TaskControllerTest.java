@@ -63,7 +63,7 @@ class TaskControllerTest {
                 10,     // size
                 tasks   // records
         );
-        when(taskService.listTasks("alice", null, null, pageRequest)).thenReturn(pageResult);
+        when(taskService.listTasks("alice", null, null, null, pageRequest)).thenReturn(pageResult);
 
         mockMvc.perform(get("/api/tasks").principal(() -> "alice")
                 .param("page", "1")

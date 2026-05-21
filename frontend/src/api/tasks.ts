@@ -1,12 +1,21 @@
 import { http } from './http'
 import type { ApiResponse, PageResponse } from '../types/api'
-import type { Task, TaskPayload, TeamTaskPayload, TaskStatus } from '../types/task'
+import type {
+  Task,
+  TaskPayload,
+  TeamTaskPayload,
+  TaskStatus,
+  TaskDependency,
+  TaskDependencyItem,
+  TaskDependenciesResponse,
+} from '../types/task'
 
 export type TaskQueryParams = {
   page?: number
   size?: number
   status?: string
   priority?: string
+  keyword?: string
   sortBy?: string
 }
 
@@ -60,4 +69,53 @@ export async function updateTeamTaskStatus(teamId: number, taskId: number, statu
 
 export async function deleteTeamTask(teamId: number, taskId: number) {
   await http.delete(`/teams/${teamId}/tasks/${taskId}`)
+}
+
+// ─── Task Dependency API ──────────────────────────────────────────────────────
+
+/**
+ * Fetch all dependency relationships for a personal task.
+ * Returns both prerequisites (dependencies) and successors (dependents).
+ */
+export async function fetchTaskDependencies(taskId: number): Promise<TaskDependenciesResponse> {
+  const response = await http.get<ApiResponse<TaskDependenciesResponse>>(
+    `/tasks/${taskId}/dependencies`,
+  )
+  return response.data.data
+}
+
+/**
+ * Create a dependency: `fromTaskId` depends on `toTaskId`.
+ * i.e. `toTaskId` must be DONE before `fromTaskId` can be marked DONE.
+ */
+export async function addTaskDependency(
+  fromTaskId: number,
+  toTaskId: number,
+): Promise<TaskDependency> {
+  const response = await http.post<ApiResponse<TaskDependency>>('/tasks/dependencies', {
+    fromTaskId,
+    toTaskId,
+  })
+  return response.data.data
+}
+
+/**
+ * Remove a dependency record by its own id.
+ */
+export async function removeTaskDependency(dependencyId: number): Promise<void> {
+  await http.delete(`/tasks/dependencies/${dependencyId}`)
+}
+
+/**
+ * Fetch personal tasks that can be added as a dependency for `taskId`.
+ * The backend should exclude the task itself and any that would form a cycle.
+ */
+export async function fetchAvailableDependencies(
+  taskId: number,
+  keyword?: string,
+): Promise<Task[]> {
+  const response = await http.get<ApiResponse<Task[]>>('/tasks/available-for-dependency', {
+    params: { taskId, keyword },
+  })
+  return response.data.data
 }

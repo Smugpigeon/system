@@ -24,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -86,8 +85,8 @@ class TeamServiceTest {
         when(teamMembershipRepository.existsByTeamIdAndUserId(100L, targetUser.getId())).thenReturn(true);
 
         assertThrows(
-                BusinessException.class,
-                () -> teamService.addMember("owner_user", 100L, new TeamMemberAddRequest("member_user")));
+            BusinessException.class,
+            () -> teamService.addMember("owner_user", 100L, new TeamMemberAddRequest("member_user")));
     }
 
     @Test
@@ -100,15 +99,15 @@ class TeamServiceTest {
         when(userService.findByUsernameOrThrow("owner_user")).thenReturn(owner);
         when(teamAuthorizationService.requireOwner(100L, owner.getId())).thenReturn(ownerMembership);
         when(teamMembershipRepository.findByTeamIdAndUserId(100L, owner.getId()))
-                .thenReturn(java.util.Optional.of(targetMembership));
+            .thenReturn(java.util.Optional.of(targetMembership));
 
         assertThrows(
-                ForbiddenOperationException.class,
-                () -> teamService.updateMemberRole(
-                        "owner_user",
-                        100L,
-                        owner.getId(),
-                        new TeamRoleUpdateRequest(TeamRole.ADMIN)));
+            ForbiddenOperationException.class,
+            () -> teamService.updateMemberRole(
+                "owner_user",
+                100L,
+                owner.getId(),
+                new TeamRoleUpdateRequest(TeamRole.ADMIN)));
     }
 
     private User user(Long id, String username) {
