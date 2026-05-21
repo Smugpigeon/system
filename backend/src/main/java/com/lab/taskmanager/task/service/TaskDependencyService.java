@@ -229,7 +229,7 @@ public class TaskDependencyService {
                 task.getTitle(),
                 task.getStatus(),
                 task.getOwner().getUsername(),
-                task.getAssignee().getUsername()
+                task.getAssignee() == null ? null : task.getAssignee().getUsername()
         );
     }
 }

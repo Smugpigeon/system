@@ -202,7 +202,7 @@ public class TeamService {
         } else if (currentUserMembership.getRole() == TeamRole.OWNER) {
             closeMembership(teamId, targetUserId);
             handleDepartedTask(teamId, targetUser);
-        } else if (currentUser.getId() == targetUserId){
+        } else if (currentUser.getId().equals(targetUserId)) {
             closeMembership(teamId, targetUserId);
             handleDepartedTask(teamId, targetUser);
         } else {
@@ -280,10 +280,14 @@ public class TeamService {
 
             // 删除旧Owner权限
             closeMembership(teamId, currentUser.getId());
+            handleDepartedTask(teamId, currentUser);
 
             // 更新新Owner权限
             newOwnerMembership.setRole(TeamRole.OWNER);
             teamMembershipRepository.save(newOwnerMembership);
+            Team team = newOwnerMembership.getTeam();
+            team.setOwner(newOwnerMembership.getUser());
+            teamRepository.save(team);
         }
     }
 
@@ -390,7 +394,7 @@ public class TeamService {
             }
             task.setAssignee(null);
             task.setStatus(TaskStatus.TODO);
-            String description = task.getDescription();
+            String description = task.getDescription() == null ? "" : task.getDescription();
             description += "\n\noriginal assignee: " + assignee.getUsername();
             task.setDescription(description);
             taskRepository.save(task);

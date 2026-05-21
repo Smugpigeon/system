@@ -368,7 +368,8 @@ public class TaskService {
             } else {
                 canEditDetails = false;
                 canDelete = false;
-                canEditStatus = Objects.equals(task.getAssignee().getId(), currentUser.getId());
+                canEditStatus = task.getAssignee() != null
+                        && Objects.equals(task.getAssignee().getId(), currentUser.getId());
             }
         }
 

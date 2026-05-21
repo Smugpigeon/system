@@ -5,8 +5,6 @@ import type {
   TaskPayload,
   TeamTaskPayload,
   TaskStatus,
-  TaskDependency,
-  TaskDependencyItem,
   TaskDependenciesResponse,
 } from '../types/task'
 
@@ -89,21 +87,19 @@ export async function fetchTaskDependencies(taskId: number): Promise<TaskDepende
  * i.e. `toTaskId` must be DONE before `fromTaskId` can be marked DONE.
  */
 export async function addTaskDependency(
-  fromTaskId: number,
-  toTaskId: number,
-): Promise<TaskDependency> {
-  const response = await http.post<ApiResponse<TaskDependency>>('/tasks/dependencies', {
-    fromTaskId,
-    toTaskId,
+  taskId: number,
+  predecessorTaskId: number,
+): Promise<void> {
+  await http.post<ApiResponse<void>>(`/tasks/${taskId}/dependencies`, {
+    predecessorTaskId,
   })
-  return response.data.data
 }
 
 /**
- * Remove a dependency record by its own id.
+ * Remove one predecessor from a personal task.
  */
-export async function removeTaskDependency(dependencyId: number): Promise<void> {
-  await http.delete(`/tasks/dependencies/${dependencyId}`)
+export async function removeTaskDependency(taskId: number, predecessorTaskId: number): Promise<void> {
+  await http.delete(`/tasks/${taskId}/dependencies/${predecessorTaskId}`)
 }
 
 /**
@@ -114,10 +110,8 @@ export async function fetchAvailableDependencies(
   taskId: number,
   keyword?: string,
 ): Promise<Task[]> {
-  const response = await http.get<ApiResponse<Task[]>>('/tasks/available-for-dependency', {
-    params: { taskId, keyword },
-  })
-  return response.data.data
+  const page = await fetchTasks({ page: 1, size: 100, keyword, sortBy: 'updatedAt' })
+  return page.records.filter((task) => task.id !== taskId && task.scope === 'PERSONAL')
 }
 
 export async function fetchTeamTaskDependencies(teamId: number, taskId: number) {
@@ -128,11 +122,10 @@ export async function fetchTeamTaskDependencies(teamId: number, taskId: number) 
 }
 
 export async function addTeamTaskDependency(teamId: number, taskId: number, predecessorTaskId: number) {
-  const response = await http.post<ApiResponse<TaskDependency>>(
+  await http.post<ApiResponse<void>>(
     `/teams/${teamId}/tasks/${taskId}/dependencies`,
     { predecessorTaskId }
   )
-  return response.data.data
 }
 
 export async function removeTeamTaskDependency(teamId: number, taskId: number, predecessorTaskId: number) {
