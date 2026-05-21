@@ -16,7 +16,13 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/teams")
@@ -109,60 +115,5 @@ public class TeamController {
             Principal principal) {
         TeamMemberResponse response = teamService.updateMemberRole(principal.getName(), teamId, userId, request);
         return ResponseEntity.ok(ApiResponse.success("团队角色更新成功", response));
-    }
-
-    /**
-     * Remove member from team.
-     * @param teamId target team identifier
-     * @param userId target user identifier
-     * @param principal authenticated principal
-     * @return remove message
-     */
-    @DeleteMapping("/{teamId}/members/{userId}")
-    @Operation(summary = "移除团队成员", description = "仅团队拥有者可移除 Member 或 Admin，Admin 或 Member可以移除自己")
-    public ResponseEntity<ApiResponse<Void>> removeMember(
-        @PathVariable Long teamId,
-        @PathVariable Long userId,
-        Principal principal) {
-        teamService.removeMember(principal.getName(), teamId, userId);
-        return ResponseEntity.ok(ApiResponse.success("团队成员已移除"));
-    }
-
-    /**
-     * Disband a team, information of the team will be archived but the team space will be inaccessible.
-     * @param teamId target team identifier
-     * @param principal target user identifier
-     * @return disband message
-     */
-    @DeleteMapping("/{teamId}")
-    @Operation(summary = "解散团队", description = "仅 Owner 可解散团队，解散后普通团队空间不能继续访问, 团队相关信息将留档")
-    public ResponseEntity<ApiResponse<Void>> disbandTeam(
-        @PathVariable Long teamId,
-        Principal principal) {
-        teamService.disbandTeam(principal.getName(), teamId);
-        return ResponseEntity.ok(ApiResponse.success("团队已解散"));
-    }
-
-    /**
-     * Owner voluntarily leaves the team.
-     * - If no other members exist, the team is automatically disbanded.
-     * - Otherwise, a new owner must be specified.
-     */
-    @PostMapping("/{teamId}/owner-leave")
-    @Operation(summary = "Owner 离开团队", description =
-        """
-        Owner 主动离开团队：
-        • 若团队还有其他成员，必须指定新 Owner；
-        • 若团队仅剩 Owner，则自动解散团队。
-        """
-    )
-    public ResponseEntity<ApiResponse<Void>> ownerLeaveTeam(
-        @PathVariable Long teamId,
-        @RequestParam(required = false) Long newOwnerId,
-        Principal principal) {
-
-        teamService.ownerLeaveTeam(principal.getName(), teamId, newOwnerId);
-
-        return ResponseEntity.ok(ApiResponse.success("Owner 已离开团队"));
     }
 }
