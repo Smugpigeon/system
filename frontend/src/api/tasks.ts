@@ -119,3 +119,22 @@ export async function fetchAvailableDependencies(
   })
   return response.data.data
 }
+
+export async function fetchTeamTaskDependencies(teamId: number, taskId: number) {
+  const response = await http.get<ApiResponse<TaskDependenciesResponse>>(
+    `/teams/${teamId}/tasks/${taskId}/dependencies`
+  )
+  return response.data.data
+}
+
+export async function addTeamTaskDependency(teamId: number, taskId: number, predecessorTaskId: number) {
+  const response = await http.post<ApiResponse<TaskDependency>>(
+    `/teams/${teamId}/tasks/${taskId}/dependencies`,
+    { predecessorTaskId }
+  )
+  return response.data.data
+}
+
+export async function removeTeamTaskDependency(teamId: number, taskId: number, predecessorTaskId: number) {
+  await http.delete(`/teams/${teamId}/tasks/${taskId}/dependencies/${predecessorTaskId}`)
+}
