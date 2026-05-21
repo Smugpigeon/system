@@ -10,6 +10,7 @@ import com.lab.taskmanager.task.entity.PageResult;
 import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
+import com.lab.taskmanager.task.service.TaskDependencyService;
 import com.lab.taskmanager.task.service.TaskService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,6 +46,9 @@ class TaskControllerTest {
 
     @MockitoBean
     private TaskService taskService;
+
+    @MockitoBean
+    private TaskDependencyService taskDependencyService;
 
     @MockitoBean
     private JwtService jwtService;

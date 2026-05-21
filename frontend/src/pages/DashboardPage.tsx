@@ -187,10 +187,10 @@ export function DashboardPage() {
     }
   }
 
-  const handleRemoveDependency = async (dependencyId: number) => {
+  const handleRemoveDependency = async (predecessorTaskId: number) => {
     if (!selectedTaskId) return
     try {
-      await removeTaskDependency(dependencyId)
+      await removeTaskDependency(selectedTaskId, predecessorTaskId)
       await loadDependencies(selectedTaskId)
       setToast({ message: '依赖关系已移除', type: 'success' })
     } catch (error) {
@@ -538,7 +538,7 @@ export function DashboardPage() {
                       <button
                         className="button-ghost button-sm"
                         type="button"
-                        onClick={() => handleRemoveDependency(dep.dependencyId)}
+                        onClick={() => handleRemoveDependency(dep.taskId)}
                         title="移除此依赖"
                       >
                         ×

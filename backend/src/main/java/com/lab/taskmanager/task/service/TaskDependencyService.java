@@ -51,6 +51,7 @@ public class TaskDependencyService {
         validateDependencyCompatibility(successorTask, predecessorTask);
         validateDuplicateDependency(taskId, predecessorTaskId);
         validateNoCycle(predecessorTaskId, taskId);
+        validateDoneTaskDoesNotDependOnUnfinishedTask(successorTask, predecessorTask);
         
         TaskDependency dependency = new TaskDependency();
         dependency.setPredecessorTaskId(predecessorTaskId);
@@ -169,6 +170,12 @@ public class TaskDependencyService {
         }
     }
 
+    private void validateDoneTaskDoesNotDependOnUnfinishedTask(Task successor, Task predecessor) {
+        if (successor.getStatus() == TaskStatus.DONE && predecessor.getStatus() != TaskStatus.DONE) {
+            throw new BusinessException("已完成任务不能添加未完成的前置任务");
+        }
+    }
+
     private void validateNoCycle(Long fromTaskId, Long toTaskId) {
         Set<Long> visited = new HashSet<>();
         Queue<Long> queue = new LinkedList<>();
@@ -229,7 +236,7 @@ public class TaskDependencyService {
                 task.getTitle(),
                 task.getStatus(),
                 task.getOwner().getUsername(),
-                task.getAssignee().getUsername()
+                task.getAssignee() == null ? null : task.getAssignee().getUsername()
         );
     }
 }

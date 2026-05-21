@@ -130,7 +130,7 @@ public class TeamTaskController {
             @PathVariable Long teamId,
             @PathVariable Long taskId,
             Principal principal) {
-        // teamId 用于权限校验，但实际校验在 Service 层通过 task.team.id 完成
+        taskService.getTeamTask(principal.getName(), teamId, taskId);
         DependencyResponse response = taskDependencyService.getDependencies(principal.getName(), taskId);
         return ResponseEntity.ok(ApiResponse.success("依赖关系获取成功", response));
     }
@@ -142,6 +142,7 @@ public class TeamTaskController {
             @PathVariable Long taskId,
             @Valid @RequestBody DependencyCreateRequest request,
             Principal principal) {
+        taskService.getTeamTask(principal.getName(), teamId, taskId);
         taskDependencyService.addDependency(principal.getName(), taskId, request.getPredecessorTaskId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("依赖关系添加成功"));
@@ -154,6 +155,7 @@ public class TeamTaskController {
             @PathVariable Long taskId,
             @PathVariable Long predecessorId,
             Principal principal) {
+        taskService.getTeamTask(principal.getName(), teamId, taskId);
         taskDependencyService.removeDependency(principal.getName(), taskId, predecessorId);
         return ResponseEntity.ok(ApiResponse.success("依赖关系删除成功"));
     }

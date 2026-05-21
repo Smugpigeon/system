@@ -154,8 +154,8 @@ class TeamServiceIntegrationTest {
 
         // 如果团队没有其它成员，则自动解散团队
         teamService.ownerLeaveTeam("admin_user", team.getId(), null);
-        assertEquals(0, teamRepository.findAll().size());
-        assertEquals(0, teamMembershipRepository.findAll().size());
+        assertTrue(teamRepository.findById(team.getId()).isEmpty());
+        assertTrue(teamMembershipRepository.findAllByTeamId(team.getId()).isEmpty());
     }
 
     private TaskDependency taskDependency(Task task1, Task task2) {
