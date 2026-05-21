@@ -69,21 +69,29 @@ export function TeamWorkspacePage() {
       if (filters.priority !== 'ALL') {
         params.priority = filters.priority
       }
-      if (filters.keyword.trim()) {
-        params.keyword = filters.keyword.trim()
-      }
 
       const [detail, taskPage] = await Promise.all([
         fetchTeamDetail(parsedTeamId),
         fetchTeamTasks(parsedTeamId, params),
       ])
 
+      let filteredRecords = taskPage.records
+      if (filters.keyword.trim()) {
+        const keyword = filters.keyword.toLowerCase()
+        filteredRecords = taskPage.records.filter((task) =>
+          task.title.toLowerCase().includes(keyword)
+          || task.description.toLowerCase().includes(keyword)
+          || task.assigneeUsername.toLowerCase().includes(keyword)
+          || task.ownerUsername.toLowerCase().includes(keyword),
+        )
+      }
+
       setTeam(detail)
-      setTasks(taskPage.records)
+      setTasks(filteredRecords)
       setTotalPages(taskPage.totalPages)
       setTotalRecords(taskPage.totalRecords)
 
-      if (!taskPage.records.length) {
+      if (!filteredRecords.length) {
         setSelectedTaskId(null)
         setFormMode(detail.currentUserRole === 'MEMBER' ? 'edit' : 'create')
         return
@@ -93,9 +101,9 @@ export function TeamWorkspacePage() {
         return
       }
 
-      const stillExists = taskPage.records.some((task) => task.id === selectedTaskId)
+      const stillExists = filteredRecords.some((task) => task.id === selectedTaskId)
       if (!stillExists || selectedTaskId === null) {
-        setSelectedTaskId(taskPage.records[0].id)
+        setSelectedTaskId(filteredRecords[0].id)
       }
     } catch (error) {
       setLoadingError(getErrorMessage(error))
