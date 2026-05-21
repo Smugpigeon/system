@@ -156,6 +156,140 @@ class Lab3AdversarialIntegrationTest {
         assertEquals(HttpStatus.FORBIDDEN, memberDeleteResponse.getStatusCode());
     }
 
+    @Test
+    void personalDependencyLifecycleShouldSupportViewBlockDoneAndGuardDeletion() throws Exception {
+        AuthSession user = registerAndLogin(uniqueUsername("perdep"), "abc12345");
+
+        Long predecessorId = createPersonalTask(user, "Personal predecessor", "TODO");
+        Long successorId = createPersonalTask(user, "Personal successor", "TODO");
+
+        ResponseEntity<String> addDependencyResponse = exchange(
+                HttpMethod.POST,
+                "/api/tasks/" + successorId + "/dependencies",
+                Map.of("predecessorTaskId", predecessorId),
+                user.token());
+        assertEquals(HttpStatus.CREATED, addDependencyResponse.getStatusCode());
+
+        ResponseEntity<String> successorDependenciesResponse = exchange(
+                HttpMethod.GET,
+                "/api/tasks/" + successorId + "/dependencies",
+                null,
+                user.token());
+        assertEquals(HttpStatus.OK, successorDependenciesResponse.getStatusCode());
+        assertTrue(containsId(readBody(successorDependenciesResponse).path("data").path("predecessors"), predecessorId));
+
+        ResponseEntity<String> predecessorDependenciesResponse = exchange(
+                HttpMethod.GET,
+                "/api/tasks/" + predecessorId + "/dependencies",
+                null,
+                user.token());
+        assertEquals(HttpStatus.OK, predecessorDependenciesResponse.getStatusCode());
+        assertTrue(containsId(readBody(predecessorDependenciesResponse).path("data").path("successors"), successorId));
+
+        ResponseEntity<String> blockedDoneResponse = updatePersonalTask(user, successorId, "Personal successor", "DONE");
+        assertEquals(HttpStatus.BAD_REQUEST, blockedDoneResponse.getStatusCode());
+        assertTrue(readBody(blockedDoneResponse).path("message").asText().contains("前置任务"));
+
+        ResponseEntity<String> blockedDeleteResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/tasks/" + predecessorId,
+                null,
+                user.token());
+        assertEquals(HttpStatus.BAD_REQUEST, blockedDeleteResponse.getStatusCode());
+        assertTrue(readBody(blockedDeleteResponse).path("message").asText().contains("后继任务"));
+
+        assertEquals(HttpStatus.OK, updatePersonalTask(user, predecessorId, "Personal predecessor", "DONE").getStatusCode());
+        assertEquals(HttpStatus.OK, updatePersonalTask(user, successorId, "Personal successor", "DONE").getStatusCode());
+
+        ResponseEntity<String> removeDependencyResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/tasks/" + successorId + "/dependencies/" + predecessorId,
+                null,
+                user.token());
+        assertEquals(HttpStatus.OK, removeDependencyResponse.getStatusCode());
+
+        ResponseEntity<String> deleteAfterUnlinkResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/tasks/" + predecessorId,
+                null,
+                user.token());
+        assertEquals(HttpStatus.OK, deleteAfterUnlinkResponse.getStatusCode());
+    }
+
+    @Test
+    void memberSelfLeaveShouldRemoveAccessAndUnassignOpenTasks() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("selfown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("selfmem"), "abc12345");
+
+        Long teamId = createTeam(owner, "Self Leave Team");
+        addMember(owner, teamId, member.username());
+        createTeamTask(owner, teamId, member.userId(), "Open task before self leave", "IN_PROGRESS");
+
+        ResponseEntity<String> leaveResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId + "/members/" + member.userId(),
+                null,
+                member.token());
+        assertEquals(HttpStatus.OK, leaveResponse.getStatusCode());
+
+        ResponseEntity<String> memberTeamDetailResponse = exchange(
+                HttpMethod.GET,
+                "/api/teams/" + teamId,
+                null,
+                member.token());
+        assertEquals(HttpStatus.NOT_FOUND, memberTeamDetailResponse.getStatusCode());
+
+        ResponseEntity<String> memberTeamTaskResponse = exchange(
+                HttpMethod.GET,
+                "/api/teams/" + teamId + "/tasks",
+                null,
+                member.token());
+        assertEquals(HttpStatus.NOT_FOUND, memberTeamTaskResponse.getStatusCode());
+
+        ResponseEntity<String> ownerTeamTaskResponse = exchange(
+                HttpMethod.GET,
+                "/api/teams/" + teamId + "/tasks",
+                null,
+                owner.token());
+        assertEquals(HttpStatus.OK, ownerTeamTaskResponse.getStatusCode());
+        JsonNode task = findRecordByTitle(
+                readBody(ownerTeamTaskResponse).path("data").path("records"),
+                "Open task before self leave");
+        assertTrue(task.path("assigneeId").isNull());
+        assertEquals("TODO", task.path("status").asText());
+    }
+
+    @Test
+    void disbandTeamShouldCloseNormalTeamSpaceAndTaskAccess() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("disown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("dismem"), "abc12345");
+
+        Long teamId = createTeam(owner, "Disband Team");
+        addMember(owner, teamId, member.username());
+        createTeamTask(owner, teamId, member.userId(), "Task before disband", "TODO");
+
+        ResponseEntity<String> disbandResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId,
+                null,
+                owner.token());
+        assertEquals(HttpStatus.OK, disbandResponse.getStatusCode());
+
+        ResponseEntity<String> ownerTeamDetailResponse = exchange(
+                HttpMethod.GET,
+                "/api/teams/" + teamId,
+                null,
+                owner.token());
+        assertEquals(HttpStatus.NOT_FOUND, ownerTeamDetailResponse.getStatusCode());
+
+        ResponseEntity<String> memberTeamTaskResponse = exchange(
+                HttpMethod.GET,
+                "/api/teams/" + teamId + "/tasks",
+                null,
+                member.token());
+        assertEquals(HttpStatus.NOT_FOUND, memberTeamTaskResponse.getStatusCode());
+    }
+
     private AuthSession registerAndLogin(String username, String password) throws Exception {
         ResponseEntity<String> registerResponse = post(
                 "/api/auth/register",
@@ -207,6 +341,36 @@ class Lab3AdversarialIntegrationTest {
         return readBody(response).path("data").path("id").asLong();
     }
 
+    private Long createPersonalTask(AuthSession user, String title, String status) throws Exception {
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/tasks",
+                Map.of(
+                        "title", title,
+                        "description", "created by adversarial test",
+                        "status", status,
+                        "priority", "MEDIUM"),
+                user.token());
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        return readBody(response).path("data").path("id").asLong();
+    }
+
+    private ResponseEntity<String> updatePersonalTask(
+            AuthSession user,
+            Long taskId,
+            String title,
+            String status) {
+        return exchange(
+                HttpMethod.PUT,
+                "/api/tasks/" + taskId,
+                Map.of(
+                        "title", title,
+                        "description", "updated by adversarial test",
+                        "status", status,
+                        "priority", "MEDIUM"),
+                user.token());
+    }
+
     private ResponseEntity<String> post(String path, Object body) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -240,6 +404,24 @@ class Lab3AdversarialIntegrationTest {
             }
         }
         return false;
+    }
+
+    private boolean containsId(JsonNode records, Long id) {
+        for (JsonNode record : records) {
+            if (record.path("id").asLong() == id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private JsonNode findRecordByTitle(JsonNode records, String title) {
+        for (JsonNode record : records) {
+            if (title.equals(record.path("title").asText())) {
+                return record;
+            }
+        }
+        throw new IllegalStateException("Record not found: " + title);
     }
 
     private record AuthSession(Long userId, String username, String token) {
