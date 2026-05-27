@@ -105,7 +105,7 @@ public class TaskController {
     public ResponseEntity<ApiResponse<DependencyResponse>> getDependencies(
             @PathVariable Long taskId,
             Principal principal) {
-        DependencyResponse response = taskDependencyService.getDependencies(principal.getName(), taskId);
+        DependencyResponse response = taskDependencyService.getPersonalDependencies(principal.getName(), taskId);
         return ResponseEntity.ok(ApiResponse.success("依赖关系获取成功", response));
     }
 
@@ -115,7 +115,7 @@ public class TaskController {
             @PathVariable Long taskId,
             @Valid @RequestBody DependencyCreateRequest request,
             Principal principal) {
-        taskDependencyService.addDependency(principal.getName(), taskId, request.getPredecessorTaskId());
+        taskDependencyService.addPersonalDependency(principal.getName(), taskId, request.getPredecessorTaskId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("依赖关系添加成功"));
     }
@@ -126,7 +126,7 @@ public class TaskController {
             @PathVariable Long taskId,
             @PathVariable Long predecessorId,
             Principal principal) {
-        taskDependencyService.removeDependency(principal.getName(), taskId, predecessorId);
+        taskDependencyService.removePersonalDependency(principal.getName(), taskId, predecessorId);
         return ResponseEntity.ok(ApiResponse.success("依赖关系删除成功"));
     }
 }

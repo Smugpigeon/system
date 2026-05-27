@@ -60,6 +60,25 @@ public class TaskDependencyService {
     }
 
     @Transactional
+    public void addPersonalDependency(String username, Long taskId, Long predecessorTaskId) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+
+        Task successorTask = getPersonalTaskWithAccess(currentUser, taskId, true);
+        Task predecessorTask = getPersonalTaskWithAccess(currentUser, predecessorTaskId, true);
+
+        validateSelfDependency(taskId, predecessorTaskId);
+        validateDependencyCompatibility(successorTask, predecessorTask);
+        validateDuplicateDependency(taskId, predecessorTaskId);
+        validateNoCycle(predecessorTaskId, taskId);
+        validateDoneTaskDoesNotDependOnUnfinishedTask(successorTask, predecessorTask);
+
+        TaskDependency dependency = new TaskDependency();
+        dependency.setPredecessorTaskId(predecessorTaskId);
+        dependency.setSuccessorTaskId(taskId);
+        taskDependencyRepository.save(dependency);
+    }
+
+    @Transactional
     public void removeDependency(String username, Long taskId, Long predecessorTaskId) {
         User currentUser = userService.findByUsernameOrThrow(username);
         
@@ -69,6 +88,20 @@ public class TaskDependencyService {
                 .findByPredecessorTaskIdAndSuccessorTaskId(predecessorTaskId, taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("依赖关系不存在"));
         
+        taskDependencyRepository.delete(dependency);
+    }
+
+    @Transactional
+    public void removePersonalDependency(String username, Long taskId, Long predecessorTaskId) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+
+        getPersonalTaskWithAccess(currentUser, taskId, true);
+        getPersonalTaskWithAccess(currentUser, predecessorTaskId, false);
+
+        TaskDependency dependency = taskDependencyRepository
+                .findByPredecessorTaskIdAndSuccessorTaskId(predecessorTaskId, taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("依赖关系不存在"));
+
         taskDependencyRepository.delete(dependency);
     }
 
@@ -88,6 +121,25 @@ public class TaskDependencyService {
                 .map(dep -> toDependencyTaskInfo(dep.getSuccessorTaskId()))
                 .toList();
         
+        return new DependencyResponse(predecessors, successors);
+    }
+
+    @Transactional(readOnly = true)
+    public DependencyResponse getPersonalDependencies(String username, Long taskId) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+
+        getPersonalTaskWithAccess(currentUser, taskId, false);
+
+        List<DependencyTaskInfo> predecessors = taskDependencyRepository.findAllBySuccessorTaskId(taskId)
+                .stream()
+                .map(dep -> toDependencyTaskInfo(dep.getPredecessorTaskId()))
+                .toList();
+
+        List<DependencyTaskInfo> successors = taskDependencyRepository.findAllByPredecessorTaskId(taskId)
+                .stream()
+                .map(dep -> toDependencyTaskInfo(dep.getSuccessorTaskId()))
+                .toList();
+
         return new DependencyResponse(predecessors, successors);
     }
 
@@ -226,6 +278,14 @@ public class TaskDependencyService {
             }
             return task;
         }
+    }
+
+    private Task getPersonalTaskWithAccess(User currentUser, Long taskId, boolean needWrite) {
+        Task task = getTaskWithAccess(currentUser, taskId, needWrite);
+        if (task.getScope() != TaskScope.PERSONAL) {
+            throw new ResourceNotFoundException("个人任务不存在，或你无权访问该任务");
+        }
+        return task;
     }
 
     private DependencyTaskInfo toDependencyTaskInfo(Long taskId) {
