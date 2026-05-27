@@ -61,9 +61,14 @@ public class TeamService {
     @Transactional
     public TeamSummaryResponse createTeam(@NotNull String username, @NotNull TeamCreateRequest request) {
         User currentUser = userService.findByUsernameOrThrow(username);
+        String teamName = request.name().trim();
+
+        if (teamRepository.existsByOwnerIdAndNameIgnoreCase(currentUser.getId(), teamName)) {
+            throw new BusinessException("团队名称已存在，请使用其他团队名称");
+        }
 
         Team team = new Team();
-        team.setName(request.name().trim());
+        team.setName(teamName);
         team.setOwner(currentUser);
         Team savedTeam = teamRepository.save(team);
 

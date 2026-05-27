@@ -52,6 +52,7 @@ class TeamServiceTest {
     void createTeamShouldPersistOwnerMembership() {
         User owner = user(1L, "owner_user");
         when(userService.findByUsernameOrThrow("owner_user")).thenReturn(owner);
+        when(teamRepository.existsByOwnerIdAndNameIgnoreCase(owner.getId(), "Alpha Team")).thenReturn(false);
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> {
             Team team = invocation.getArgument(0);
             team.setId(100L);
