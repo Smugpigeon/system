@@ -157,6 +157,29 @@ class Lab3AdversarialIntegrationTest {
     }
 
     @Test
+    void personalDependencyEndpointShouldRejectTeamTasks() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("scopeown"), "abc12345");
+
+        Long teamId = createTeam(owner, "Dependency Scope Team");
+        Long predecessorId = createTeamTask(owner, teamId, owner.userId(), "Team predecessor for scope", "DONE");
+        Long successorId = createTeamTask(owner, teamId, owner.userId(), "Team successor for scope", "TODO");
+
+        ResponseEntity<String> addThroughPersonalEndpoint = exchange(
+                HttpMethod.POST,
+                "/api/tasks/" + successorId + "/dependencies",
+                Map.of("predecessorTaskId", predecessorId),
+                owner.token());
+        assertEquals(HttpStatus.NOT_FOUND, addThroughPersonalEndpoint.getStatusCode());
+
+        ResponseEntity<String> viewThroughPersonalEndpoint = exchange(
+                HttpMethod.GET,
+                "/api/tasks/" + successorId + "/dependencies",
+                null,
+                owner.token());
+        assertEquals(HttpStatus.NOT_FOUND, viewThroughPersonalEndpoint.getStatusCode());
+    }
+
+    @Test
     void personalDependencyLifecycleShouldSupportViewBlockDoneAndGuardDeletion() throws Exception {
         AuthSession user = registerAndLogin(uniqueUsername("perdep"), "abc12345");
 
