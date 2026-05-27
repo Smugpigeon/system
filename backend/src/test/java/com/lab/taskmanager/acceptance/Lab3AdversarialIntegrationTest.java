@@ -125,6 +125,24 @@ class Lab3AdversarialIntegrationTest {
     }
 
     @Test
+    void crossTeamDependencyShouldBeRejectedEvenWhenUserOwnsBothTeams() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("crossown"), "abc12345");
+
+        Long firstTeamId = createTeam(owner, "Cross Team One");
+        Long secondTeamId = createTeam(owner, "Cross Team Two");
+        Long predecessorId = createTeamTask(owner, firstTeamId, owner.userId(), "Cross predecessor", "DONE");
+        Long successorId = createTeamTask(owner, secondTeamId, owner.userId(), "Cross successor", "TODO");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/teams/" + secondTeamId + "/tasks/" + successorId + "/dependencies",
+                Map.of("predecessorTaskId", predecessorId),
+                owner.token());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(readBody(response).path("message").asText().contains("同一团队"));
+    }
+
+    @Test
     void memberCannotManageDependenciesEvenWhenTheyKnowTaskIds() throws Exception {
         AuthSession owner = registerAndLogin(uniqueUsername("memown"), "abc12345");
         AuthSession member = registerAndLogin(uniqueUsername("memdep"), "abc12345");
@@ -280,6 +298,30 @@ class Lab3AdversarialIntegrationTest {
                 "Open task before self leave");
         assertTrue(task.path("assigneeId").isNull());
         assertEquals("TODO", task.path("status").asText());
+    }
+
+    @Test
+    void removedMemberShouldNotPatchKnownTeamTaskIdDirectly() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("rmown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("rmmem"), "abc12345");
+
+        Long teamId = createTeam(owner, "Removed Member Direct Access Team");
+        addMember(owner, teamId, member.username());
+        Long taskId = createTeamTask(owner, teamId, member.userId(), "Direct access target", "TODO");
+
+        ResponseEntity<String> removeResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId + "/members/" + member.userId(),
+                null,
+                owner.token());
+        assertEquals(HttpStatus.OK, removeResponse.getStatusCode());
+
+        ResponseEntity<String> directPatchResponse = exchange(
+                HttpMethod.PATCH,
+                "/api/teams/" + teamId + "/tasks/" + taskId + "/status",
+                Map.of("status", "DONE"),
+                member.token());
+        assertEquals(HttpStatus.NOT_FOUND, directPatchResponse.getStatusCode());
     }
 
     @Test

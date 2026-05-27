@@ -192,6 +192,7 @@ class Lab2RequirementIntegrationTest {
     @Test
     void ownerShouldNotCreateDuplicateActiveTeamNames() throws Exception {
         AuthSession owner = registerAndLogin(uniqueUsername("dupowner"), "abc12345");
+        AuthSession anotherOwner = registerAndLogin(uniqueUsername("dupanother"), "abc12345");
         String teamName = "Duplicate Review Team";
 
         ResponseEntity<String> firstResponse = exchange(
@@ -204,10 +205,17 @@ class Lab2RequirementIntegrationTest {
         ResponseEntity<String> duplicateResponse = exchange(
                 HttpMethod.POST,
                 "/api/teams",
-                Map.of("name", teamName),
+                Map.of("name", "  duplicate review team  "),
                 owner.token());
         assertEquals(HttpStatus.BAD_REQUEST, duplicateResponse.getStatusCode());
         assertTrue(readBody(duplicateResponse).path("message").asText().contains("团队名称"));
+
+        ResponseEntity<String> otherOwnerResponse = exchange(
+                HttpMethod.POST,
+                "/api/teams",
+                Map.of("name", teamName),
+                anotherOwner.token());
+        assertEquals(HttpStatus.CREATED, otherOwnerResponse.getStatusCode());
     }
 
     @Test
