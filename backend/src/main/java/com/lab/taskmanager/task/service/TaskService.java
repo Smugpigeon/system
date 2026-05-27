@@ -34,6 +34,9 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
@@ -80,9 +83,8 @@ public class TaskService {
                 .and(TaskSpecifications.withStatus(status))
                 .and(TaskSpecifications.withPriority(priority))
                 .and(TaskSpecifications.withKeyword(keyword));
-        List<Task> tasks = taskRepository.findAll(specification);
-        return paginateAndMap(
-                sortTasks(tasks, pageRequest.sortBy()),
+        return pageAndMap(
+                specification,
                 pageRequest,
                 task -> toResponse(task, currentUser, membershipIndex.get(taskTeamId(task))));
     }
@@ -158,9 +160,8 @@ public class TaskService {
                 .and(TaskSpecifications.withStatus(status))
                 .and(TaskSpecifications.withPriority(priority))
                 .and(TaskSpecifications.withKeyword(keyword));
-        List<Task> tasks = taskRepository.findAll(specification);
-        return paginateAndMap(
-                sortTasks(tasks, pageRequest.sortBy()),
+        return pageAndMap(
+                specification,
                 pageRequest,
                 task -> toResponse(task, currentUser, membership));
     }
@@ -351,6 +352,50 @@ public class TaskService {
                 pageRequest.page(),
                 pageRequest.size(),
                 records);
+    }
+
+    private PageResult<TaskResponse> pageAndMap(
+            Specification<Task> specification,
+            PageRequest pageRequest,
+            Function<Task, TaskResponse> mapper) {
+        if (!supportsDatabasePaging(pageRequest.sortBy())) {
+            List<Task> sortedTasks = sortTasks(taskRepository.findAll(specification), pageRequest.sortBy());
+            return paginateAndMap(sortedTasks, pageRequest, mapper);
+        }
+
+        Page<Task> taskPage = taskRepository.findAll(specification, toPageable(pageRequest));
+        List<TaskResponse> records = taskPage.getContent()
+                .stream()
+                .map(mapper)
+                .toList();
+        return new PageResult<>(
+                Math.toIntExact(taskPage.getTotalElements()),
+                taskPage.getTotalPages(),
+                pageRequest.page(),
+                pageRequest.size(),
+                records);
+    }
+
+    private boolean supportsDatabasePaging(SortBy sortBy) {
+        return sortBy == SortBy.UPDATED_AT
+                || sortBy == SortBy.CREATED_AT
+                || sortBy == SortBy.DUE_AT;
+    }
+
+    private Pageable toPageable(PageRequest pageRequest) {
+        return org.springframework.data.domain.PageRequest.of(
+                pageRequest.page() - 1,
+                pageRequest.size(),
+                toDatabaseSort(pageRequest.sortBy()));
+    }
+
+    private Sort toDatabaseSort(SortBy sortBy) {
+        return switch (sortBy) {
+            case DUE_AT -> Sort.by(Sort.Order.asc("dueAt").nullsLast(), Sort.Order.desc("updatedAt"));
+            case CREATED_AT -> Sort.by(Sort.Order.desc("createdAt"));
+            case UPDATED_AT -> Sort.by(Sort.Order.desc("updatedAt"));
+            case RANK, PRIORITY, STATUS -> Sort.unsorted();
+        };
     }
 
     private Map<Long, TeamMembership> buildMembershipIndex(User currentUser) {
