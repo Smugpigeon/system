@@ -5,6 +5,7 @@ import com.lab.taskmanager.task.entity.TaskPriority;
 import com.lab.taskmanager.task.entity.TaskScope;
 import com.lab.taskmanager.task.entity.TaskStatus;
 import jakarta.persistence.criteria.JoinType;
+import java.util.Collection;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.Nullable;
 
@@ -22,6 +23,25 @@ public final class TaskSpecifications {
                         builder.equal(root.get("scope"), TaskScope.TEAM),
                         builder.equal(root.get("assignee").get("id"), userId))
         );
+    }
+
+    public static Specification<Task> dashboardVisibleTo(Long userId, Collection<Long> visibleTeamIds) {
+        return (root, query, builder) -> {
+            var personalTask = builder.and(
+                    builder.equal(root.get("scope"), TaskScope.PERSONAL),
+                    builder.equal(root.get("owner").get("id"), userId));
+
+            if (visibleTeamIds == null || visibleTeamIds.isEmpty()) {
+                return personalTask;
+            }
+
+            var team = root.join("team", JoinType.LEFT);
+            var assignedTeamTask = builder.and(
+                    builder.equal(root.get("scope"), TaskScope.TEAM),
+                    builder.equal(root.get("assignee").get("id"), userId),
+                    team.get("id").in(visibleTeamIds));
+            return builder.or(personalTask, assignedTeamTask);
+        };
     }
 
     public static Specification<Task> teamTasks(Long teamId) {

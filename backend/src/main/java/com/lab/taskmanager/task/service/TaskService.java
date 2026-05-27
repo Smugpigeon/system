@@ -74,15 +74,13 @@ public class TaskService {
             @NotNull PageRequest pageRequest) {
         User currentUser = userService.findByUsernameOrThrow(username);
         Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
-        Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(currentUser.getId())
+        Specification<Task> specification = TaskSpecifications.dashboardVisibleTo(
+                        currentUser.getId(),
+                        membershipIndex.keySet())
                 .and(TaskSpecifications.withStatus(status))
                 .and(TaskSpecifications.withPriority(priority))
                 .and(TaskSpecifications.withKeyword(keyword));
-        List<Task> tasks = taskRepository.findAll(specification)
-                .stream()
-                .filter(task -> task.getScope() == TaskScope.PERSONAL
-                        || membershipIndex.containsKey(taskTeamId(task)))
-                .toList();
+        List<Task> tasks = taskRepository.findAll(specification);
         return paginateAndMap(
                 sortTasks(tasks, pageRequest.sortBy()),
                 pageRequest,
@@ -92,14 +90,13 @@ public class TaskService {
     @Transactional(readOnly = true)
     public TaskResponse getTask(@NotNull String username, @NotNull Long taskId) {
         User currentUser = userService.findByUsernameOrThrow(username);
-        Task task = taskRepository.findOne(TaskSpecifications.dashboardVisibleTo(currentUser.getId())
+        Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
+        Task task = taskRepository.findOne(TaskSpecifications.dashboardVisibleTo(
+                                currentUser.getId(),
+                                membershipIndex.keySet())
                         .and(TaskSpecifications.withId(taskId)))
                 .orElseThrow(() -> new ResourceNotFoundException("任务不存在，或你无权访问该任务"));
-        Map<Long, TeamMembership> membershipIndex = buildMembershipIndex(currentUser);
         TeamMembership membership = membershipIndex.get(taskTeamId(task));
-        if (task.getScope() == TaskScope.TEAM && membership == null) {
-            throw new ResourceNotFoundException("任务不存在，或你无权访问该任务");
-        }
         return toResponse(task, currentUser, membership);
     }
 
