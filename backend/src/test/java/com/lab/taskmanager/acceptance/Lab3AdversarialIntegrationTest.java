@@ -290,6 +290,30 @@ class Lab3AdversarialIntegrationTest {
         assertEquals(HttpStatus.NOT_FOUND, memberTeamTaskResponse.getStatusCode());
     }
 
+    @Test
+    void disbandTeamShouldHandleUnassignedTasksAfterMemberLeaves() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("unassown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("unassmem"), "abc12345");
+
+        Long teamId = createTeam(owner, "Unassigned Disband Team");
+        addMember(owner, teamId, member.username());
+        createTeamTask(owner, teamId, member.userId(), "Task that will be unassigned", "IN_PROGRESS");
+
+        ResponseEntity<String> leaveResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId + "/members/" + member.userId(),
+                null,
+                member.token());
+        assertEquals(HttpStatus.OK, leaveResponse.getStatusCode());
+
+        ResponseEntity<String> disbandResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId,
+                null,
+                owner.token());
+        assertEquals(HttpStatus.OK, disbandResponse.getStatusCode());
+    }
+
     private AuthSession registerAndLogin(String username, String password) throws Exception {
         ResponseEntity<String> registerResponse = post(
                 "/api/auth/register",
