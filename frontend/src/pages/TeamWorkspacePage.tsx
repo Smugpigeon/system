@@ -107,7 +107,9 @@ export function TeamWorkspacePage() {
         setSelectedTaskId(taskPage.records[0].id)
       }
     } catch (error) {
-      setLoadingError(getErrorMessage(error))
+      const message = getErrorMessage(error)
+      setLoadingError(message)
+      setToast({ message, type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -348,31 +350,37 @@ export function TeamWorkspacePage() {
 
     const isOwner = team.currentUserRole === 'OWNER'
 
-    if (isOwner) {
-      const candidates = team.members.filter(m => m.role !== 'OWNER')
-      if (candidates.length === 0) {
-        if (window.confirm('你是团队唯一的成员，离开团队将自动解散团队。确认吗？')) {
-          await dissolveTeam(team.id)
-          setToast({ message: '团队已解散', type: 'success' })
-          navigate('/teams')
+    try {
+      if (isOwner) {
+        const candidates = team.members.filter(m => m.role !== 'OWNER')
+        if (candidates.length === 0) {
+          if (window.confirm('你是团队唯一的成员，离开团队将自动解散团队。确认吗？')) {
+            await dissolveTeam(team.id)
+            setToast({ message: '团队已解散', type: 'success' })
+            navigate('/teams')
+          }
+          return
         }
-        return
+        const newOwnerUsername = prompt('请选择新 Owner 的用户名', candidates[0]?.username)
+        if (!newOwnerUsername) return
+        const newOwner = team.members.find(m => m.username === newOwnerUsername)
+        if (!newOwner) {
+          setMemberError('未找到该用户')
+          return
+        }
+        await ownerLeaveTeam(team.id, newOwner.userId)
+        setToast({ message: '已离开团队，新 Owner 已指定', type: 'success' })
+        navigate('/teams')
+      } else {
+        if (!window.confirm('确认离开团队吗？你负责的任务将自动转交给 Owner。')) return
+        await leaveTeam(team.id, auth.userId)
+        setToast({ message: '已离开团队', type: 'success' })
+        navigate('/teams')
       }
-      const newOwnerUsername = prompt('请选择新 Owner 的用户名', candidates[0]?.username)
-      if (!newOwnerUsername) return
-      const newOwner = team.members.find(m => m.username === newOwnerUsername)
-      if (!newOwner) {
-        setMemberError('未找到该用户')
-        return
-      }
-      await ownerLeaveTeam(team.id, newOwner.userId)
-      setToast({ message: '已离开团队，新 Owner 已指定', type: 'success' })
-      navigate('/teams')
-    } else {
-      if (!window.confirm('确认离开团队吗？你负责的任务将自动转交给 Owner。')) return
-      await leaveTeam(team.id, auth.userId)
-      setToast({ message: '已离开团队', type: 'success' })
-      navigate('/teams')
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setMemberError(message)
+      setToast({ message, type: 'error' })
     }
   }
 
