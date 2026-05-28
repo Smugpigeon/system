@@ -98,7 +98,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success("任务删除成功"));
     }
 
-    // ================= Personal Task Dependencise =================
+    // ================= Personal Task Dependencies =================
 
     @GetMapping("/{taskId}/dependencies")
     @Operation(summary = "获取个人任务的依赖关系", description = "获取当前用户的个人任务之间的所有依赖关系。团队任务的依赖请走团队空间接口")
