@@ -125,6 +125,24 @@ class Lab3AdversarialIntegrationTest {
     }
 
     @Test
+    void crossTeamDependencyShouldBeRejectedEvenWhenUserOwnsBothTeams() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("crossown"), "abc12345");
+
+        Long firstTeamId = createTeam(owner, "Cross Team One");
+        Long secondTeamId = createTeam(owner, "Cross Team Two");
+        Long predecessorId = createTeamTask(owner, firstTeamId, owner.userId(), "Cross predecessor", "DONE");
+        Long successorId = createTeamTask(owner, secondTeamId, owner.userId(), "Cross successor", "TODO");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/teams/" + secondTeamId + "/tasks/" + successorId + "/dependencies",
+                Map.of("predecessorTaskId", predecessorId),
+                owner.token());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(readBody(response).path("message").asText().contains("同一团队"));
+    }
+
+    @Test
     void memberCannotManageDependenciesEvenWhenTheyKnowTaskIds() throws Exception {
         AuthSession owner = registerAndLogin(uniqueUsername("memown"), "abc12345");
         AuthSession member = registerAndLogin(uniqueUsername("memdep"), "abc12345");
@@ -154,6 +172,29 @@ class Lab3AdversarialIntegrationTest {
                 null,
                 member.token());
         assertEquals(HttpStatus.FORBIDDEN, memberDeleteResponse.getStatusCode());
+    }
+
+    @Test
+    void personalDependencyEndpointShouldRejectTeamTasks() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("scopeown"), "abc12345");
+
+        Long teamId = createTeam(owner, "Dependency Scope Team");
+        Long predecessorId = createTeamTask(owner, teamId, owner.userId(), "Team predecessor for scope", "DONE");
+        Long successorId = createTeamTask(owner, teamId, owner.userId(), "Team successor for scope", "TODO");
+
+        ResponseEntity<String> addThroughPersonalEndpoint = exchange(
+                HttpMethod.POST,
+                "/api/tasks/" + successorId + "/dependencies",
+                Map.of("predecessorTaskId", predecessorId),
+                owner.token());
+        assertEquals(HttpStatus.NOT_FOUND, addThroughPersonalEndpoint.getStatusCode());
+
+        ResponseEntity<String> viewThroughPersonalEndpoint = exchange(
+                HttpMethod.GET,
+                "/api/tasks/" + successorId + "/dependencies",
+                null,
+                owner.token());
+        assertEquals(HttpStatus.NOT_FOUND, viewThroughPersonalEndpoint.getStatusCode());
     }
 
     @Test
@@ -260,6 +301,30 @@ class Lab3AdversarialIntegrationTest {
     }
 
     @Test
+    void removedMemberShouldNotPatchKnownTeamTaskIdDirectly() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("rmown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("rmmem"), "abc12345");
+
+        Long teamId = createTeam(owner, "Removed Member Direct Access Team");
+        addMember(owner, teamId, member.username());
+        Long taskId = createTeamTask(owner, teamId, member.userId(), "Direct access target", "TODO");
+
+        ResponseEntity<String> removeResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId + "/members/" + member.userId(),
+                null,
+                owner.token());
+        assertEquals(HttpStatus.OK, removeResponse.getStatusCode());
+
+        ResponseEntity<String> directPatchResponse = exchange(
+                HttpMethod.PATCH,
+                "/api/teams/" + teamId + "/tasks/" + taskId + "/status",
+                Map.of("status", "DONE"),
+                member.token());
+        assertEquals(HttpStatus.NOT_FOUND, directPatchResponse.getStatusCode());
+    }
+
+    @Test
     void disbandTeamShouldCloseNormalTeamSpaceAndTaskAccess() throws Exception {
         AuthSession owner = registerAndLogin(uniqueUsername("disown"), "abc12345");
         AuthSession member = registerAndLogin(uniqueUsername("dismem"), "abc12345");
@@ -288,6 +353,30 @@ class Lab3AdversarialIntegrationTest {
                 null,
                 member.token());
         assertEquals(HttpStatus.NOT_FOUND, memberTeamTaskResponse.getStatusCode());
+    }
+
+    @Test
+    void disbandTeamShouldHandleUnassignedTasksAfterMemberLeaves() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("unassown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("unassmem"), "abc12345");
+
+        Long teamId = createTeam(owner, "Unassigned Disband Team");
+        addMember(owner, teamId, member.username());
+        createTeamTask(owner, teamId, member.userId(), "Task that will be unassigned", "IN_PROGRESS");
+
+        ResponseEntity<String> leaveResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId + "/members/" + member.userId(),
+                null,
+                member.token());
+        assertEquals(HttpStatus.OK, leaveResponse.getStatusCode());
+
+        ResponseEntity<String> disbandResponse = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId,
+                null,
+                owner.token());
+        assertEquals(HttpStatus.OK, disbandResponse.getStatusCode());
     }
 
     private AuthSession registerAndLogin(String username, String password) throws Exception {

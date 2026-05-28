@@ -10,4 +10,6 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     @Override
     @EntityGraph(attributePaths = {"owner"})
     List<Team> findAll();
+
+    boolean existsByOwnerIdAndNameIgnoreCase(Long ownerId, String name);
 }

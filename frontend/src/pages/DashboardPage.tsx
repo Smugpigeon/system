@@ -69,6 +69,7 @@ export function DashboardPage() {
   const [availableDeps, setAvailableDeps] = useState<Task[]>([])
   const [showDepModal, setShowDepModal] = useState(false)
   const [depLoading, setDepLoading] = useState(false)
+  const [dependencyError, setDependencyError] = useState('')
 
   /**
    * Build a quick lookup: taskId → { deps, dependents }
@@ -141,10 +142,13 @@ export function DashboardPage() {
       const data = await fetchTaskDependencies(taskId)
       setDependencies(data.dependencies ?? [])
       setDependents(data.dependents ?? [])
-    } catch {
-      // Non-critical — silently clear
+      setDependencyError('')
+    } catch (error) {
+      const message = getErrorMessage(error)
       setDependencies([])
       setDependents([])
+      setDependencyError(message)
+      setToast({ message, type: 'error' })
     } finally {
       setDepLoading(false)
     }
@@ -165,8 +169,12 @@ export function DashboardPage() {
     try {
       const data = await fetchAvailableDependencies(taskId)
       setAvailableDeps(data)
-    } catch {
+      setDependencyError('')
+    } catch (error) {
+      const message = getErrorMessage(error)
       setAvailableDeps([])
+      setDependencyError(message)
+      setToast({ message, type: 'error' })
     }
   }, [])
 
@@ -523,6 +531,7 @@ export function DashboardPage() {
             {/* Prerequisites */}
             <div className="dependency-section">
               <h4>前置任务（此任务依赖的任务）</h4>
+              {dependencyError ? <div className="message message--error">{dependencyError}</div> : null}
               {depLoading ? (
                 <p>加载中...</p>
               ) : dependencies.length === 0 ? (

@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -186,6 +187,83 @@ class Lab2RequirementIntegrationTest {
                 null,
                 outsider.token());
         assertEquals(HttpStatus.NOT_FOUND, outsiderTeamTaskResponse.getStatusCode());
+    }
+
+    @Test
+    void ownerShouldNotCreateDuplicateActiveTeamNames() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("dupowner"), "abc12345");
+        AuthSession anotherOwner = registerAndLogin(uniqueUsername("dupanother"), "abc12345");
+        String teamName = "Duplicate Review Team";
+
+        ResponseEntity<String> firstResponse = exchange(
+                HttpMethod.POST,
+                "/api/teams",
+                Map.of("name", teamName),
+                owner.token());
+        assertEquals(HttpStatus.CREATED, firstResponse.getStatusCode());
+
+        ResponseEntity<String> duplicateResponse = exchange(
+                HttpMethod.POST,
+                "/api/teams",
+                Map.of("name", "  duplicate review team  "),
+                owner.token());
+        assertEquals(HttpStatus.BAD_REQUEST, duplicateResponse.getStatusCode());
+        assertTrue(readBody(duplicateResponse).path("message").asText().contains("团队名称"));
+
+        ResponseEntity<String> otherOwnerResponse = exchange(
+                HttpMethod.POST,
+                "/api/teams",
+                Map.of("name", teamName),
+                anotherOwner.token());
+        assertEquals(HttpStatus.CREATED, otherOwnerResponse.getStatusCode());
+    }
+
+    @Test
+    void dashboardShouldOnlyShowPersonalAndAssignedTeamTasks() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("dashown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("dashmem"), "abc12345");
+        AuthSession anotherMember = registerAndLogin(uniqueUsername("dashoth"), "abc12345");
+
+        Long teamId = readBody(exchange(
+                HttpMethod.POST,
+                "/api/teams",
+                Map.of("name", "Dashboard Isolation Team"),
+                owner.token())).path("data").path("id").asLong();
+        exchange(HttpMethod.POST, "/api/teams/" + teamId + "/members", Map.of("username", member.username()), owner.token());
+        exchange(HttpMethod.POST, "/api/teams/" + teamId + "/members", Map.of("username", anotherMember.username()), owner.token());
+
+        ResponseEntity<String> teamDetailResponse = exchange(HttpMethod.GET, "/api/teams/" + teamId, null, owner.token());
+        JsonNode members = readBody(teamDetailResponse).path("data").path("members");
+        Long memberUserId = findUserId(members, member.username());
+        Long anotherMemberUserId = findUserId(members, anotherMember.username());
+
+        exchange(
+                HttpMethod.POST,
+                "/api/teams/" + teamId + "/tasks",
+                Map.of("title", "Visible assigned team task", "status", "TODO", "priority", "HIGH", "assigneeId", memberUserId),
+                owner.token());
+        exchange(
+                HttpMethod.POST,
+                "/api/teams/" + teamId + "/tasks",
+                Map.of("title", "Hidden other member task", "status", "TODO", "priority", "HIGH", "assigneeId", anotherMemberUserId),
+                owner.token());
+
+        ResponseEntity<String> dashboardResponse = exchange(HttpMethod.GET, "/api/tasks?page=1&size=10", null, member.token());
+        assertEquals(HttpStatus.OK, dashboardResponse.getStatusCode());
+        JsonNode records = readBody(dashboardResponse).path("data").path("records");
+        assertTrue(containsTitle(records, "Visible assigned team task"));
+        assertFalse(containsTitle(records, "Hidden other member task"));
+    }
+
+    @Test
+    void dashboardShouldRejectInvalidPaginationBoundaries() throws Exception {
+        AuthSession user = registerAndLogin(uniqueUsername("pageuser"), "abc12345");
+
+        ResponseEntity<String> zeroPageResponse = exchange(HttpMethod.GET, "/api/tasks?page=0&size=10", null, user.token());
+        assertEquals(HttpStatus.BAD_REQUEST, zeroPageResponse.getStatusCode());
+
+        ResponseEntity<String> oversizedPageResponse = exchange(HttpMethod.GET, "/api/tasks?page=1&size=101", null, user.token());
+        assertEquals(HttpStatus.BAD_REQUEST, oversizedPageResponse.getStatusCode());
     }
 
     private AuthSession registerAndLogin(String username, String password) throws Exception {
