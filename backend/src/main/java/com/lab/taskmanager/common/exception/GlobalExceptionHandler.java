@@ -3,6 +3,7 @@ package com.lab.taskmanager.common.exception;
 import com.lab.taskmanager.common.api.ApiResponse;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -42,6 +43,18 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.failure(exception.getMessage()));
+    }
+
+    /**
+     * 并发场景下 Service 层查重通过但 DB 唯一约束拦截时（例如同时添加同一成员、同时创建同名团队），
+     * Spring 会抛出 DataIntegrityViolationException。这里包装成 409 Conflict，避免漏成 500。
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
+            DataIntegrityViolationException exception) {
+        log.warn("Data integrity violation: {}", exception.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure("数据冲突，请检查是否存在重复或非法操作"));
     }
 
     @ExceptionHandler(Exception.class)

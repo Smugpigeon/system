@@ -297,7 +297,8 @@ class Lab3AdversarialIntegrationTest {
                 readBody(ownerTeamTaskResponse).path("data").path("records"),
                 "Open task before self leave");
         assertTrue(task.path("assigneeId").isNull());
-        assertEquals("TODO", task.path("status").asText());
+        // 成员离队仅清空负责人，保留任务原状态，避免抹掉 IN_PROGRESS 等进度信息
+        assertEquals("IN_PROGRESS", task.path("status").asText());
     }
 
     @Test

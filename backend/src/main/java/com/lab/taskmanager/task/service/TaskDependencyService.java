@@ -81,13 +81,15 @@ public class TaskDependencyService {
     @Transactional
     public void removeDependency(String username, Long taskId, Long predecessorTaskId) {
         User currentUser = userService.findByUsernameOrThrow(username);
-        
+
+        // 与 removePersonalDependency 对称：两端任务都要校验可访问，避免只验证 successor 留下防御缺口
         getTaskWithAccess(currentUser, taskId, true);
-        
+        getTaskWithAccess(currentUser, predecessorTaskId, false);
+
         TaskDependency dependency = taskDependencyRepository
                 .findByPredecessorTaskIdAndSuccessorTaskId(predecessorTaskId, taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("依赖关系不存在"));
-        
+
         taskDependencyRepository.delete(dependency);
     }
 

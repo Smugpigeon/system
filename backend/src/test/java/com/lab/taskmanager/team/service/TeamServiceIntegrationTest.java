@@ -82,10 +82,10 @@ class TeamServiceIntegrationTest {
         assertTrue(teamMembershipRepository
             .findAllByUserId(admin.getId()).isEmpty());
 
-        // 被移除成员的任务设置为未分配状态
+        // 被移除成员的任务清空负责人，但保留原状态（IN_PROGRESS），避免抹掉进度信息
         Task updated = taskRepository.findById(task.getId()).orElseThrow();
         assertNull(updated.getAssignee());
-        assertEquals(TaskStatus.TODO, updated.getStatus());
+        assertEquals(TaskStatus.IN_PROGRESS, updated.getStatus());
 
         // 在任务描述中添加原本的分配信息
         assertTrue(updated.getDescription().contains("original assignee: member_user"));

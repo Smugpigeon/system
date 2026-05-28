@@ -177,7 +177,8 @@ public class TeamService {
             throw new ForbiddenOperationException("不能修改团队拥有者的角色");
         }
         if (request.role() == TeamRole.OWNER) {
-            throw new BusinessException("Lab2 当前版本不支持转移团队拥有者角色");
+            // 角色升级接口不允许直接设为 OWNER，转让所有权请走 ownerLeaveTeam 接口
+            throw new BusinessException("如需转让团队所有权，请使用 Owner 离开接口（POST /api/teams/{teamId}/owner-leave）");
         }
 
         targetMembership.setRole(request.role());
@@ -397,8 +398,8 @@ public class TeamService {
             if(task.getStatus() == TaskStatus.DONE){
                 continue;
             }
+            // 仅清空负责人，保留任务原状态（IN_PROGRESS 等进度信息不丢失），由新接管者继续推进
             task.setAssignee(null);
-            task.setStatus(TaskStatus.TODO);
             String description = task.getDescription() == null ? "" : task.getDescription();
             description += "\n\noriginal assignee: " + assignee.getUsername();
             task.setDescription(description);

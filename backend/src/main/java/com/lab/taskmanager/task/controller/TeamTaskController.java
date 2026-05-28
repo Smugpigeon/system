@@ -122,7 +122,7 @@ public class TeamTaskController {
         return ResponseEntity.ok(ApiResponse.success("团队任务删除成功"));
     }
 
-    // ================= Team Task Dependencise =================
+    // ================= Team Task Dependencies =================
 
     @GetMapping("/{taskId}/dependencies")
     @Operation(summary = "获取团队任务的依赖关系", description = "团队成员可查看团队任务的依赖关系")
