@@ -82,6 +82,7 @@ export function TaskList({
             </p>
 
             <div className="task-card__meta">
+              <span>ID: {task.id}</span> 
               <span>负责人：{task.assigneeUsername}</span>
               <span>创建者：{task.ownerUsername}</span>
               <span>截止：{formatDateTime(task.dueAt)}</span>
