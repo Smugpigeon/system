@@ -140,8 +140,8 @@ export function DashboardPage() {
     setDepLoading(true)
     try {
       const data = await fetchTaskDependencies(taskId)
-      setDependencies(data.dependencies ?? [])
-      setDependents(data.dependents ?? [])
+      setDependencies(data.predecessors ?? [])
+      setDependents(data.successors ?? [])
       setDependencyError('')
     } catch (error) {
       const message = getErrorMessage(error)

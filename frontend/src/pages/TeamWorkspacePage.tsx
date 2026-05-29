@@ -124,8 +124,8 @@ export function TeamWorkspacePage() {
     setDepLoading(true)
     try {
       const data = await fetchTeamTaskDependencies(team.id, taskId)
-      setDependencies(data.dependencies ?? [])
-      setDependents(data.dependents ?? [])
+      setDependencies(data.predecessors ?? [])
+      setDependents(data.successors ?? [])
       setDependencyError('')
     } catch (error) {
       setDependencies([])
@@ -372,7 +372,7 @@ export function TeamWorkspacePage() {
         setToast({ message: '已离开团队，新 Owner 已指定', type: 'success' })
         navigate('/teams')
       } else {
-        if (!window.confirm('确认离开团队吗？你负责的任务将自动转交给 Owner。')) return
+        if (!window.confirm('确认离开团队吗？')) return
         await leaveTeam(team.id, auth.userId)
         setToast({ message: '已离开团队', type: 'success' })
         navigate('/teams')

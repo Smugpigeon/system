@@ -129,10 +129,8 @@ export type TaskDependency = {
  * The shape returned by GET /tasks/:id/dependencies
  */
 export type TaskDependenciesResponse = {
-  /** Tasks that the current task depends on (prerequisites) */
-  dependencies: TaskDependencyItem[]
-  /** Tasks that depend on the current task (successors) */
-  dependents: TaskDependencyItem[]
+  predecessors: TaskDependencyItem[]   
+  successors: TaskDependencyItem[]     
 }
 
 export type TaskWithDeps = Task & {
