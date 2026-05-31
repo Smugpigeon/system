@@ -83,7 +83,7 @@ export function TaskList({
 
             <div className="task-card__meta">
               <span>ID: {task.id}</span> 
-              <span>负责人：{task.assigneeUsername}</span>
+              <span>负责人：{task.assigneeUsername ?? '未分配'}</span>
               <span>创建者：{task.ownerUsername}</span>
               <span>截止：{formatDateTime(task.dueAt)}</span>
               <span>更新：{formatDateTime(task.updatedAt)}</span>

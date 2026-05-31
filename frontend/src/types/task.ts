@@ -18,8 +18,9 @@ export type Task = {
   teamName: string | null
   ownerId: number
   ownerUsername: string
-  assigneeId: number
-  assigneeUsername: string
+  // 后端允许 null：成员离队 / 被移除后任务的 assignee 会被清空，但状态保留（见 fix 014d201）
+  assigneeId: number | null
+  assigneeUsername: string | null
   canEditDetails: boolean
   canEditStatus: boolean
   canDelete: boolean
@@ -95,7 +96,8 @@ export function taskToFormValues(task: Task | null): TaskFormValues {
     status: task.status,
     priority: task.priority,
     dueAt: toDateTimeLocalInput(task.dueAt),
-    assigneeId: String(task.assigneeId),
+    // assigneeId 可能为 null（成员离队 / 被移除后任务变未分配），表单用空串表示
+    assigneeId: task.assigneeId == null ? '' : String(task.assigneeId),
   }
 }
 
