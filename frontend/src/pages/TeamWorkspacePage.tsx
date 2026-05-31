@@ -642,13 +642,13 @@ export function TeamWorkspacePage() {
                   ) : (
                     <ul className="dependency-list">
                       {dependencies.map((dep) => (
-                        <li key={dep.dependencyId} className="dependency-item">
+                        <li key={dep.id} className="dependency-item">
                           <span className={`status-badge status-badge--${dep.status.toLowerCase()}`}>
                             {STATUS_LABELS[dep.status]}
                           </span>
-                          <span>#{dep.taskId} {dep.title}</span>
+                          <span>#{dep.id} {dep.title}</span>
                           {canManageTeamTasks && (
-                            <button className="button-ghost" onClick={() => handleRemoveDependency(dep.taskId)}>
+                            <button className="button-ghost" onClick={() => handleRemoveDependency(dep.id)}>
                               移除
                             </button>
                           )}
@@ -668,11 +668,11 @@ export function TeamWorkspacePage() {
                   ) : (
                     <ul className="dependency-list">
                       {dependents.map((dep) => (
-                        <li key={dep.dependencyId} className="dependency-item">
+                        <li key={dep.id} className="dependency-item">
                           <span className={`status-badge status-badge--${dep.status.toLowerCase()}`}>
                             {STATUS_LABELS[dep.status]}
                           </span>
-                          <span>#{dep.taskId} {dep.title}</span>
+                          <span>#{dep.id} {dep.title}</span>
                         </li>
                       ))}
                     </ul>

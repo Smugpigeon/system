@@ -539,7 +539,7 @@ export function DashboardPage() {
               ) : (
                 <ul className="dependency-list">
                   {dependencies.map((dep) => (
-                    <li key={dep.dependencyId} className="dependency-item">
+                    <li key={dep.id} className="dependency-item">
                       <span className={`status-badge status-badge--${dep.status.toLowerCase()}`}>
                         {STATUS_LABELS[dep.status]}
                       </span>
@@ -547,7 +547,7 @@ export function DashboardPage() {
                       <button
                         className="button-ghost button-sm"
                         type="button"
-                        onClick={() => handleRemoveDependency(dep.taskId)}
+                        onClick={() => handleRemoveDependency(dep.id)}
                         title="移除此依赖"
                       >
                         ×
@@ -568,7 +568,7 @@ export function DashboardPage() {
               ) : (
                 <ul className="dependency-list">
                   {dependents.map((dep) => (
-                    <li key={dep.dependencyId} className="dependency-item">
+                    <li key={dep.id} className="dependency-item">
                       <span className={`status-badge status-badge--${dep.status.toLowerCase()}`}>
                         {STATUS_LABELS[dep.status]}
                       </span>
