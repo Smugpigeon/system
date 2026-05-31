@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   addTeamMember,
@@ -134,20 +134,26 @@ export function TeamWorkspacePage() {
     loadWorkspace()
   }, [loadWorkspace])
 
+  // 用 ref 跟踪最新的依赖请求 id；快速切任务时丢弃过期响应，防止旧请求覆盖新数据
+  const depRequestIdRef = useRef(0)
+
   const loadDependencies = useCallback(async (taskId: number) => {
     if (!team) return
+    const requestId = ++depRequestIdRef.current
     setDepLoading(true)
     try {
       const data = await fetchTeamTaskDependencies(team.id, taskId)
+      if (depRequestIdRef.current !== requestId) return
       setDependencies(data.predecessors ?? [])
       setDependents(data.successors ?? [])
       setDependencyError('')
     } catch (error) {
+      if (depRequestIdRef.current !== requestId) return
       setDependencies([])
       setDependents([])
       setDependencyError(getErrorMessage(error))
     } finally {
-      setDepLoading(false)
+      if (depRequestIdRef.current === requestId) setDepLoading(false)
     }
   }, [team])
 

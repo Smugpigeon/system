@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -136,22 +137,28 @@ export function DashboardPage() {
     loadTasks()
   }, [loadTasks])
 
+  // 用 ref 跟踪最新的依赖请求 id；快速切任务时丢弃过期响应，防止旧请求覆盖新数据
+  const depRequestIdRef = useRef(0)
+
   // ── Load dependencies whenever selected personal task changes ──────────────
   const loadDependencies = useCallback(async (taskId: number) => {
+    const requestId = ++depRequestIdRef.current
     setDepLoading(true)
     try {
       const data = await fetchTaskDependencies(taskId)
+      if (depRequestIdRef.current !== requestId) return
       setDependencies(data.predecessors ?? [])
       setDependents(data.successors ?? [])
       setDependencyError('')
     } catch (error) {
+      if (depRequestIdRef.current !== requestId) return
       const message = getErrorMessage(error)
       setDependencies([])
       setDependents([])
       setDependencyError(message)
       setToast({ message, type: 'error' })
     } finally {
-      setDepLoading(false)
+      if (depRequestIdRef.current === requestId) setDepLoading(false)
     }
   }, [])
 
