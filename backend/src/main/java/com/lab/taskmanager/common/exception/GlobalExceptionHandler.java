@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 @Slf4j
@@ -29,6 +30,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
         return ResponseEntity.badRequest().body(ApiResponse.failure(exception.getMessage()));
+    }
+
+    /**
+     * 路径变量或查询参数无法解析（例如把 "undefined" 当作 Long、把字母传入枚举）时，
+     * Spring 抛 MethodArgumentTypeMismatchException。这里包装成 400 Bad Request，
+     * 避免漏成 500 误导调用方以为是服务端故障。
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        String message = "请求参数 %s 的值不合法：%s".formatted(exception.getName(), exception.getValue());
+        return ResponseEntity.badRequest().body(ApiResponse.failure(message));
     }
 
     @ExceptionHandler(ForbiddenOperationException.class)

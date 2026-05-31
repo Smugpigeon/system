@@ -102,20 +102,16 @@ export function taskToFormValues(task: Task | null): TaskFormValues {
 // ─── Task Dependency Types ────────────────────────────────────────────────────
 
 /**
- * A single dependency record returned by the API.
- * `dependencyId` is the PK of the dependency row itself (used for deletion).
- * `taskId`       is the related task's id.
- * `title`        is the related task's title.
- * `status`       is the related task's current status.
- * `isOutgoing`   true  → this entry is a task that the selected task DEPENDS ON
- *                false → this entry is a task that DEPENDS ON the selected task
+ * 字段对齐后端 DependencyTaskInfo DTO。
+ * `id` 是关联任务的 id；删除依赖时也用它当 predecessorId。
+ * 列表方向（前置 / 后继）由调用方按数组归属判断，不需要 isOutgoing 标志。
  */
 export type TaskDependencyItem = {
-  dependencyId: number
-  taskId: number
+  id: number
   title: string
   status: TaskStatus
-  isOutgoing: boolean
+  ownerUsername: string
+  assigneeUsername: string | null
 }
 
 export type TaskDependency = {
