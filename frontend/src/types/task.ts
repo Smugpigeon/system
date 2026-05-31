@@ -18,7 +18,6 @@ export type Task = {
   teamName: string | null
   ownerId: number
   ownerUsername: string
-  // 后端允许 null：成员离队 / 被移除后任务的 assignee 会被清空，但状态保留（见 fix 014d201）
   assigneeId: number | null
   assigneeUsername: string | null
   canEditDetails: boolean
@@ -96,18 +95,12 @@ export function taskToFormValues(task: Task | null): TaskFormValues {
     status: task.status,
     priority: task.priority,
     dueAt: toDateTimeLocalInput(task.dueAt),
-    // assigneeId 可能为 null（成员离队 / 被移除后任务变未分配），表单用空串表示
     assigneeId: task.assigneeId == null ? '' : String(task.assigneeId),
   }
 }
 
 // ─── Task Dependency Types ────────────────────────────────────────────────────
 
-/**
- * 字段对齐后端 DependencyTaskInfo DTO。
- * `id` 是关联任务的 id；删除依赖时也用它当 predecessorId。
- * 列表方向（前置 / 后继）由调用方按数组归属判断，不需要 isOutgoing 标志。
- */
 export type TaskDependencyItem = {
   id: number
   title: string
