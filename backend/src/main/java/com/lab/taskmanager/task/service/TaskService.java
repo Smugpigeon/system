@@ -264,6 +264,9 @@ public class TaskService {
     private RuntimeException findPersonalTaskFailure(Long currentUserId, Long taskId) {
         return taskRepository.findById(taskId)
                 .filter(task -> task.getScope() == TaskScope.TEAM)
+                .filter(task -> task.getTeam() != null
+                        && teamMembershipRepository.existsByTeamIdAndUserId(
+                                task.getTeam().getId(), currentUserId))
                 .<RuntimeException>map(task -> new ForbiddenOperationException("团队任务请在团队空间中按角色权限进行修改"))
                 .orElse(new ResourceNotFoundException("任务不存在，或你无权访问该任务"));
     }

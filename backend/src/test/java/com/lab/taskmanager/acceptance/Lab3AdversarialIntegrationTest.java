@@ -380,6 +380,258 @@ class Lab3AdversarialIntegrationTest {
         assertEquals(HttpStatus.OK, disbandResponse.getStatusCode());
     }
 
+    // ====================== Group A: Dependency algorithm coverage ======================
+
+    @Test
+    void selfDependencyShouldBeRejected() throws Exception {
+        AuthSession user = registerAndLogin(uniqueUsername("self"), "abc12345");
+        Long taskId = createPersonalTask(user, "Self-loop", "TODO");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/tasks/" + taskId + "/dependencies",
+                Map.of("predecessorTaskId", taskId),
+                user.token());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void duplicateDependencyShouldBeRejected() throws Exception {
+        AuthSession user = registerAndLogin(uniqueUsername("dup"), "abc12345");
+        Long pre = createPersonalTask(user, "Pre", "TODO");
+        Long suc = createPersonalTask(user, "Suc", "TODO");
+
+        ResponseEntity<String> first = exchange(
+                HttpMethod.POST,
+                "/api/tasks/" + suc + "/dependencies",
+                Map.of("predecessorTaskId", pre),
+                user.token());
+        assertEquals(HttpStatus.CREATED, first.getStatusCode());
+
+        ResponseEntity<String> second = exchange(
+                HttpMethod.POST,
+                "/api/tasks/" + suc + "/dependencies",
+                Map.of("predecessorTaskId", pre),
+                user.token());
+        assertTrue(
+                second.getStatusCode() == HttpStatus.BAD_REQUEST
+                        || second.getStatusCode() == HttpStatus.CONFLICT,
+                "expected 400 or 409 for duplicate dep, got " + second.getStatusCode());
+    }
+
+    @Test
+    void cyclicDependencyShouldBeRejected() throws Exception {
+        AuthSession user = registerAndLogin(uniqueUsername("cyc"), "abc12345");
+        Long a = createPersonalTask(user, "A", "TODO");
+        Long b = createPersonalTask(user, "B", "TODO");
+        Long c = createPersonalTask(user, "C", "TODO");
+
+        assertEquals(HttpStatus.CREATED, exchange(HttpMethod.POST,
+                "/api/tasks/" + b + "/dependencies",
+                Map.of("predecessorTaskId", a), user.token()).getStatusCode());
+        assertEquals(HttpStatus.CREATED, exchange(HttpMethod.POST,
+                "/api/tasks/" + c + "/dependencies",
+                Map.of("predecessorTaskId", b), user.token()).getStatusCode());
+
+        ResponseEntity<String> closeCycle = exchange(
+                HttpMethod.POST,
+                "/api/tasks/" + a + "/dependencies",
+                Map.of("predecessorTaskId", c),
+                user.token());
+        assertEquals(HttpStatus.BAD_REQUEST, closeCycle.getStatusCode());
+    }
+
+    // ====================== Group B: transferOwnership ======================
+
+    @Test
+    void transferOwnershipShouldSwapRolesAndKeepOldOwnerInTeam() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("xferown"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("xfermem"), "abc12345");
+        Long teamId = createTeam(owner, "Xfer Team");
+        addMember(owner, teamId, member.username());
+
+        ResponseEntity<String> transfer = exchange(
+                HttpMethod.POST,
+                "/api/teams/" + teamId + "/transfer-ownership?newOwnerId=" + member.userId(),
+                null,
+                owner.token());
+        assertEquals(HttpStatus.OK, transfer.getStatusCode());
+
+        ResponseEntity<String> detail = exchange(
+                HttpMethod.GET, "/api/teams/" + teamId, null, owner.token());
+        assertEquals(HttpStatus.OK, detail.getStatusCode(),
+                "old owner should still see team detail after transfer");
+        assertEquals("MEMBER",
+                readBody(detail).path("data").path("currentUserRole").asText());
+
+        ResponseEntity<String> newOwnerDetail = exchange(
+                HttpMethod.GET, "/api/teams/" + teamId, null, member.token());
+        assertEquals("OWNER",
+                readBody(newOwnerDetail).path("data").path("currentUserRole").asText());
+    }
+
+    @Test
+    void transferOwnershipToSelfShouldBeRejected() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("xferself"), "abc12345");
+        Long teamId = createTeam(owner, "Self Xfer Team");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/teams/" + teamId + "/transfer-ownership?newOwnerId=" + owner.userId(),
+                null,
+                owner.token());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void transferOwnershipToNonMemberShouldBeRejected() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("xfernm"), "abc12345");
+        AuthSession outsider = registerAndLogin(uniqueUsername("xferout"), "abc12345");
+        Long teamId = createTeam(owner, "Outsider Xfer Team");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/teams/" + teamId + "/transfer-ownership?newOwnerId=" + outsider.userId(),
+                null,
+                owner.token());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void nonOwnerCannotTransferOwnership() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("xferow2"), "abc12345");
+        AuthSession member = registerAndLogin(uniqueUsername("xferm2"), "abc12345");
+        Long teamId = createTeam(owner, "Member Xfer Team");
+        addMember(owner, teamId, member.username());
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/teams/" + teamId + "/transfer-ownership?newOwnerId=" + owner.userId(),
+                null,
+                member.token());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    @Test
+    void afterTransferOldOwnerLosesOwnerPrivileges() throws Exception {
+        AuthSession oldOwner = registerAndLogin(uniqueUsername("oldown"), "abc12345");
+        AuthSession newOwner = registerAndLogin(uniqueUsername("newown"), "abc12345");
+        Long teamId = createTeam(oldOwner, "Privilege Loss Team");
+        addMember(oldOwner, teamId, newOwner.username());
+
+        assertEquals(HttpStatus.OK, exchange(HttpMethod.POST,
+                "/api/teams/" + teamId + "/transfer-ownership?newOwnerId=" + newOwner.userId(),
+                null, oldOwner.token()).getStatusCode());
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.POST,
+                "/api/teams/" + teamId + "/transfer-ownership?newOwnerId=" + oldOwner.userId(),
+                null,
+                oldOwner.token());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    // ====================== Group C: Lifecycle guards ======================
+
+    @Test
+    void ownerCannotBeRemovedByDeleteEndpoint() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("rmown"), "abc12345");
+        Long teamId = createTeam(owner, "Owner Remove Team");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.DELETE,
+                "/api/teams/" + teamId + "/members/" + owner.userId(),
+                null,
+                owner.token());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    @Test
+    void disbandedTeamShouldRejectAllSubsequentTeamOperations() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("disall"), "abc12345");
+        Long teamId = createTeam(owner, "All Ops Disband Team");
+        Long taskId = createTeamTask(owner, teamId, owner.userId(), "Pre-disband", "TODO");
+
+        assertEquals(HttpStatus.OK, exchange(HttpMethod.DELETE,
+                "/api/teams/" + teamId, null, owner.token()).getStatusCode());
+
+        assertEquals(HttpStatus.NOT_FOUND, exchange(HttpMethod.GET,
+                "/api/teams/" + teamId, null, owner.token()).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, exchange(HttpMethod.GET,
+                "/api/teams/" + teamId + "/tasks/" + taskId,
+                null, owner.token()).getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, exchange(HttpMethod.DELETE,
+                "/api/teams/" + teamId + "/tasks/" + taskId,
+                null, owner.token()).getStatusCode());
+    }
+
+    // ====================== Group D: Data isolation / info leak ======================
+
+    @Test
+    void deletingTeamTaskViaPersonalEndpointShouldNotLeakItsExistence() throws Exception {
+        AuthSession victim = registerAndLogin(uniqueUsername("victim"), "abc12345");
+        AuthSession attacker = registerAndLogin(uniqueUsername("attacker"), "abc12345");
+        Long teamId = createTeam(victim, "Hidden Team");
+        Long realTeamTask = createTeamTask(victim, teamId, victim.userId(), "Secret", "TODO");
+
+        long fakeId = 9_999_999_999L;
+        ResponseEntity<String> fakeResp = exchange(
+                HttpMethod.DELETE, "/api/tasks/" + fakeId, null, attacker.token());
+        ResponseEntity<String> realResp = exchange(
+                HttpMethod.DELETE, "/api/tasks/" + realTeamTask, null, attacker.token());
+
+        assertEquals(
+                fakeResp.getStatusCode(),
+                realResp.getStatusCode(),
+                "non-existent task and team-task-attacker-cannot-see must be indistinguishable; "
+                        + "fake=" + fakeResp.getStatusCode()
+                        + " real=" + realResp.getStatusCode());
+    }
+
+    @Test
+    void deletingTeamTaskByOwnerViaPersonalEndpointShouldStillBlockButNotLeakDetails() throws Exception {
+        AuthSession owner = registerAndLogin(uniqueUsername("ownleak"), "abc12345");
+        Long teamId = createTeam(owner, "Owner Personal Endpoint Team");
+        Long teamTaskId = createTeamTask(owner, teamId, owner.userId(), "Team task", "TODO");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.DELETE,
+                "/api/tasks/" + teamTaskId,
+                null,
+                owner.token());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode(),
+                "team-task deletion via personal endpoint by owner returns 403 today; "
+                        + "audit notes this leaks existence vs 404 for non-existent");
+    }
+
+    @Test
+    void crossUserPersonalTaskAccessShouldReturn404() throws Exception {
+        AuthSession a = registerAndLogin(uniqueUsername("usra"), "abc12345");
+        AuthSession b = registerAndLogin(uniqueUsername("usrb"), "abc12345");
+        Long taskA = createPersonalTask(a, "A's secret", "TODO");
+
+        ResponseEntity<String> getResp = exchange(
+                HttpMethod.GET, "/api/tasks/" + taskA, null, b.token());
+        ResponseEntity<String> deleteResp = exchange(
+                HttpMethod.DELETE, "/api/tasks/" + taskA, null, b.token());
+
+        assertEquals(HttpStatus.NOT_FOUND, getResp.getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, deleteResp.getStatusCode());
+    }
+
+    @Test
+    void undefinedPathVariableReturns400NotFiveHundred() throws Exception {
+        AuthSession user = registerAndLogin(uniqueUsername("undef"), "abc12345");
+        Long taskId = createPersonalTask(user, "Some task", "TODO");
+
+        ResponseEntity<String> response = exchange(
+                HttpMethod.DELETE,
+                "/api/tasks/" + taskId + "/dependencies/undefined",
+                null,
+                user.token());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
     private AuthSession registerAndLogin(String username, String password) throws Exception {
         ResponseEntity<String> registerResponse = post(
                 "/api/auth/register",
