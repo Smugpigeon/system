@@ -264,6 +264,37 @@ public class TeamService {
         teamRepository.delete(team);
     }
 
+    /**
+     * 转让团队所有权：当前 Owner 与目标成员对调角色。Owner 不离开团队，
+     * 仅角色变更为 Member。"离开团队"是另外独立操作（通过 leave/remove 接口）。
+     *
+     * @param username   当前用户（必须是 Owner）
+     * @param teamId     团队 ID
+     * @param newOwnerId 新 Owner 用户 ID，必须是当前团队的非 Owner 成员
+     */
+    @Transactional
+    public void transferOwnership(String username, Long teamId, Long newOwnerId) {
+        User currentUser = userService.findByUsernameOrThrow(username);
+        TeamMembership currentMembership = teamAuthorizationService.requireOwner(teamId, currentUser.getId());
+
+        if (newOwnerId.equals(currentUser.getId())) {
+            throw new BusinessException("不能将所有权转让给自己");
+        }
+
+        TeamMembership newOwnerMembership = teamMembershipRepository
+                .findByTeamIdAndUserId(teamId, newOwnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("新 Owner 必须是当前团队成员"));
+
+        currentMembership.setRole(TeamRole.MEMBER);
+        newOwnerMembership.setRole(TeamRole.OWNER);
+        teamMembershipRepository.save(currentMembership);
+        teamMembershipRepository.save(newOwnerMembership);
+
+        Team team = newOwnerMembership.getTeam();
+        team.setOwner(newOwnerMembership.getUser());
+        teamRepository.save(team);
+    }
+
     @Transactional
     public void ownerLeaveTeam(String username, Long teamId, Long newOwnerId) {
         User currentUser = userService.findByUsernameOrThrow(username);

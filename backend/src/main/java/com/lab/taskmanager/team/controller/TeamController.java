@@ -165,4 +165,18 @@ public class TeamController {
 
         return ResponseEntity.ok(ApiResponse.success("Owner 已离开团队"));
     }
+
+    /**
+     * 转让团队所有权：Owner 不离开团队，与目标成员对调角色（Owner 变 Member）。
+     * 离开团队是独立操作（成员走 DELETE /members/{userId} 或解散走 DELETE /{teamId}）。
+     */
+    @PostMapping("/{teamId}/transfer-ownership")
+    @Operation(summary = "转让团队所有权", description = "仅 Owner 可操作；与目标成员对调角色，Owner 变为 Member 后仍在团队中")
+    public ResponseEntity<ApiResponse<Void>> transferOwnership(
+            @PathVariable Long teamId,
+            @RequestParam Long newOwnerId,
+            Principal principal) {
+        teamService.transferOwnership(principal.getName(), teamId, newOwnerId);
+        return ResponseEntity.ok(ApiResponse.success("团队所有权已转让"));
+    }
 }

@@ -38,6 +38,11 @@ export async function leaveTeam(teamId: number, userId: number) {
 export async function ownerLeaveTeam(teamId: number, newOwnerId: number) {
   await http.post(`/teams/${teamId}/owner-leave?newOwnerId=${newOwnerId}`)
 }
+
+export async function transferTeamOwnership(teamId: number, newOwnerId: number) {
+  await http.post(`/teams/${teamId}/transfer-ownership?newOwnerId=${newOwnerId}`)
+}
+
 export async function dissolveTeam(teamId: number) {
   await http.delete(`/teams/${teamId}`)
 }

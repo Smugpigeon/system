@@ -5,8 +5,8 @@ import {
   dissolveTeam,
   fetchTeamDetail,
   leaveTeam,
-  ownerLeaveTeam,
   removeTeamMember,
+  transferTeamOwnership,
   updateTeamMemberRole,
 } from '../api/teams'
 import {
@@ -67,6 +67,8 @@ export function TeamWorkspacePage() {
   const [dependencyError, setDependencyError] = useState('')
   const [availableDeps, setAvailableDeps] = useState<Task[]>([])
   const [showDepModal, setShowDepModal] = useState(false)
+  const [showTransferDialog, setShowTransferDialog] = useState(false)
+  const [pendingNewOwnerId, setPendingNewOwnerId] = useState<string>('')
 
   type ConfirmConfig = {
     title: string
@@ -377,56 +379,54 @@ export function TeamWorkspacePage() {
     })
   }
 
-  const handleLeaveTeam = async () => {
+  // Member / Admin 离开团队。Owner 不能调用此方法（UI 上隐藏按钮），必须先转让所有权或解散团队。
+  const handleLeaveTeam = () => {
     if (!team || !auth) return
+    setConfirm({
+      title: '离开团队',
+      message: '确认离开团队吗？离开后你将失去访问该团队的权限，未完成的任务会清空负责人但保留原状态。',
+      tone: 'danger',
+      confirmLabel: '离开',
+      onConfirm: async () => {
+        try {
+          await leaveTeam(team.id, auth.userId)
+          setToast({ message: '已离开团队', type: 'success' })
+          navigate('/teams')
+        } catch (error) {
+          const message = getErrorMessage(error)
+          setMemberError(message)
+          setToast({ message, type: 'error' })
+        }
+      },
+    })
+  }
 
-    const isOwner = team.currentUserRole === 'OWNER'
+  const handleOpenTransferDialog = () => {
+    if (!team) return
+    const firstCandidate = team.members.find((m) => m.role !== 'OWNER')
+    setPendingNewOwnerId(firstCandidate ? String(firstCandidate.userId) : '')
+    setShowTransferDialog(true)
+  }
 
+  const handleConfirmTransfer = async () => {
+    if (!team) return
+    const newOwnerId = Number(pendingNewOwnerId)
+    if (!Number.isInteger(newOwnerId) || newOwnerId <= 0) {
+      setMemberError('请选择有效的新 Owner')
+      return
+    }
     try {
-      if (isOwner) {
-        const candidates = team.members.filter(m => m.role !== 'OWNER')
-        if (candidates.length === 0) {
-          if (window.confirm('你是团队唯一的成员，离开团队将自动解散团队。确认吗？')) {
-            await dissolveTeam(team.id)
-            setToast({ message: '团队已解散', type: 'success' })
-            navigate('/teams')
-          }
-          return
-        }
-        const newOwnerUsername = prompt('请选择新 Owner 的用户名', candidates[0]?.username)
-        if (!newOwnerUsername) return
-        const newOwner = team.members.find(m => m.username === newOwnerUsername)
-        if (!newOwner) {
-          setMemberError('未找到该用户')
-          return
-        }
-        await ownerLeaveTeam(team.id, newOwner.userId)
-        setToast({ message: '已离开团队，新 Owner 已指定', type: 'success' })
-        navigate('/teams')
-      } else {
-        setConfirm({
-          title: '离开团队',
-          message: '确认离开团队吗？',
-          tone: 'danger',
-          confirmLabel: '离开',
-          onConfirm: async () => {
-            try {
-              await leaveTeam(team.id, auth.userId)
-              setToast({ message: '已离开团队', type: 'success' })
-              navigate('/teams')
-            } catch (error) {
-              const message = getErrorMessage(error)
-              setMemberError(message)
-              setToast({ message, type: 'error' })
-            }
-          },
-        })
-        return
-      }
+      setIsUpdatingMembers(true)
+      await transferTeamOwnership(team.id, newOwnerId)
+      setShowTransferDialog(false)
+      setToast({ message: '团队所有权已转让，你已变为 Member', type: 'success' })
+      await loadWorkspace()
     } catch (error) {
       const message = getErrorMessage(error)
       setMemberError(message)
       setToast({ message, type: 'error' })
+    } finally {
+      setIsUpdatingMembers(false)
     }
   }
 
@@ -503,9 +503,13 @@ export function TeamWorkspacePage() {
         <div className="toolbar">
           <button className="button-ghost" onClick={() => navigate('/teams')}>返回我的团队</button>
           <button className="button-ghost" onClick={() => navigate('/tasks')}>返回工作台</button>
-          <button className="button-ghost" onClick={handleLeaveTeam}>离开团队</button>
-          {canManageMembers && (
-            <button className="button-danger" onClick={handleDissolveTeam}>解散团队</button>
+          {canManageMembers ? (
+            <>
+              <button className="button-ghost" onClick={handleOpenTransferDialog}>转让所有权</button>
+              <button className="button-danger" onClick={handleDissolveTeam}>解散团队</button>
+            </>
+          ) : (
+            <button className="button-ghost" onClick={handleLeaveTeam}>离开团队</button>
           )}
           <button className="button-ghost" onClick={logout}>退出登录</button>
         </div>
@@ -730,6 +734,48 @@ export function TeamWorkspacePage() {
           )}
         </div>
       </section>
+
+      <Dialog
+        open={showTransferDialog}
+        onClose={() => setShowTransferDialog(false)}
+        title="转让团队所有权"
+        description="选择一个团队成员接任 Owner。转让后你将变为 Member，仍可在团队中继续工作；如需离开团队，请在转让后从成员入口主动离开。"
+        footer={(
+          <>
+            <button type="button" className="button-ghost" onClick={() => setShowTransferDialog(false)}>
+              取消
+            </button>
+            <button
+              type="button"
+              className="button-primary"
+              onClick={handleConfirmTransfer}
+              disabled={!pendingNewOwnerId || isUpdatingMembers}
+            >
+              确认转让
+            </button>
+          </>
+        )}
+      >
+        {team && team.members.filter((m) => m.role !== 'OWNER').length === 0 ? (
+          <p className="empty-text">团队当前没有其他成员，无法转让所有权。请使用"解散团队"。</p>
+        ) : (
+          <label className="form-field">
+            <span className="form-label">选择新 Owner</span>
+            <select
+              value={pendingNewOwnerId}
+              onChange={(e) => setPendingNewOwnerId(e.target.value)}
+            >
+              {team?.members
+                .filter((m) => m.role !== 'OWNER')
+                .map((m) => (
+                  <option key={m.userId} value={String(m.userId)}>
+                    {m.username}（{TEAM_ROLE_LABELS[m.role]}）
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+      </Dialog>
 
       <Dialog
         open={showDepModal}
