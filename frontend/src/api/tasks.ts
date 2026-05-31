@@ -131,3 +131,15 @@ export async function addTeamTaskDependency(teamId: number, taskId: number, pred
 export async function removeTeamTaskDependency(teamId: number, taskId: number, predecessorTaskId: number) {
   await http.delete(`/teams/${teamId}/tasks/${taskId}/dependencies/${predecessorTaskId}`)
 }
+
+/**
+ * 列出可作为 taskId 前置依赖的同团队任务（排除自己；后端 validateNoCycle 会再做循环检测）。
+ */
+export async function fetchAvailableTeamDependencies(
+  teamId: number,
+  taskId: number,
+  keyword?: string,
+): Promise<Task[]> {
+  const page = await fetchTeamTasks(teamId, { page: 1, size: 100, keyword, sortBy: 'updatedAt' })
+  return page.records.filter((task) => task.id !== taskId)
+}

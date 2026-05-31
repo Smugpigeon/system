@@ -13,6 +13,7 @@ import {
   addTeamTaskDependency,
   createTeamTask,
   deleteTeamTask,
+  fetchAvailableTeamDependencies,
   fetchTeamTaskDependencies,
   fetchTeamTasks,
   removeTeamTaskDependency,
@@ -22,6 +23,7 @@ import {
 } from '../api/tasks'
 import { getErrorMessage } from '../api/http'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Dialog } from '../components/Dialog'
 import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
@@ -63,7 +65,8 @@ export function TeamWorkspacePage() {
   const [dependents, setDependents] = useState<TaskDependencyItem[]>([])
   const [depLoading, setDepLoading] = useState(false)
   const [dependencyError, setDependencyError] = useState('')
-  const [dependencyInput, setDependencyInput] = useState('')
+  const [availableDeps, setAvailableDeps] = useState<Task[]>([])
+  const [showDepModal, setShowDepModal] = useState(false)
 
   type ConfirmConfig = {
     title: string
@@ -156,21 +159,28 @@ export function TeamWorkspacePage() {
     }
   }, [selectedTaskId, tasks, formMode, loadDependencies])
 
-  const handleAddDependency = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleAddDependency = async (predecessorTaskId: number) => {
     if (!team || !selectedTaskId) return
-    const predecessorTaskId = Number(dependencyInput)
-    if (!Number.isFinite(predecessorTaskId) || predecessorTaskId <= 0) {
-      setDependencyError('请输入有效的前置任务 ID')
-      return
-    }
-
     try {
       await addTeamTaskDependency(team.id, selectedTaskId, predecessorTaskId)
       setToast({ message: '前置任务已添加', type: 'success' })
-      setDependencyInput('')
+      setShowDepModal(false)
       await loadDependencies(selectedTaskId)
       await loadWorkspace()
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setDependencyError(message)
+      setToast({ message, type: 'error' })
+    }
+  }
+
+  const handleOpenDepModal = async () => {
+    if (!team || !selectedTaskId) return
+    try {
+      const data = await fetchAvailableTeamDependencies(team.id, selectedTaskId)
+      setAvailableDeps(data)
+      setDependencyError('')
+      setShowDepModal(true)
     } catch (error) {
       const message = getErrorMessage(error)
       setDependencyError(message)
@@ -657,14 +667,9 @@ export function TeamWorkspacePage() {
               )}
 
               {canManageTeamTasks ? (
-                <form className="inline-form" onSubmit={handleAddDependency}>
-                  <input
-                    value={dependencyInput}
-                    placeholder="输入同团队前置任务 ID"
-                    onChange={(e) => setDependencyInput(e.target.value)}
-                  />
-                  <button className="button-primary" type="submit">新增依赖</button>
-                </form>
+                <button className="button-primary" type="button" onClick={handleOpenDepModal}>
+                  + 添加前置任务
+                </button>
               ) : (
                 <div className="message message--info">
                   只有 Admin 或 Owner 可以新增、移除依赖。
@@ -725,6 +730,37 @@ export function TeamWorkspacePage() {
           )}
         </div>
       </section>
+
+      <Dialog
+        open={showDepModal}
+        onClose={() => setShowDepModal(false)}
+        title="选择前置任务"
+        description="选择同团队内的一个任务作为当前任务的前置依赖。"
+      >
+        {availableDeps.length === 0 ? (
+          <p className="empty-text">没有可用的任务可以添加为前置任务</p>
+        ) : (
+          <ul className="available-dep-list">
+            {availableDeps.map((task) => (
+              <li key={task.id} className="available-dep-item">
+                <div className="dep-info">
+                  <span className={`status-badge status-badge--${task.status.toLowerCase()}`}>
+                    {STATUS_LABELS[task.status]}
+                  </span>
+                  <span className="dep-title">#{task.id} {task.title}</span>
+                </div>
+                <button
+                  className="button-primary button-sm"
+                  type="button"
+                  onClick={() => handleAddDependency(task.id)}
+                >
+                  选择
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Dialog>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {confirm && (
