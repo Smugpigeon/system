@@ -19,6 +19,7 @@ import {
   type TaskQueryParams,
 } from '../api/tasks'
 import { getErrorMessage } from '../api/http'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
 import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
@@ -274,28 +275,42 @@ export function DashboardPage() {
     }
   }
 
-  const handleDelete = async () => {
+  const [confirm, setConfirm] = useState<{
+    title: string
+    message: string
+    tone?: 'default' | 'danger'
+    confirmLabel?: string
+    onConfirm: () => Promise<void> | void
+  } | null>(null)
+
+  const handleDelete = () => {
     const selected = tasks.find((t) => t.id === selectedTaskId)
     if (!selected || selected.scope !== 'PERSONAL') {
       setSubmitError('团队任务请在团队空间中删除')
       return
     }
 
-    if (!window.confirm('确认删除当前个人任务吗？该操作不可撤销。')) return
-
-    try {
-      setIsSubmitting(true)
-      setSubmitError('')
-      await deleteTask(selected.id)
-      setToast({ message: '个人任务已删除', type: 'success' })
-      await loadTasks()
-    } catch (error) {
-      const message = getErrorMessage(error)
-      setSubmitError(message)
-      setToast({ message, type: 'error' })
-    } finally {
-      setIsSubmitting(false)
-    }
+    setConfirm({
+      title: '删除个人任务',
+      message: '确认删除当前个人任务吗？该操作不可撤销。',
+      tone: 'danger',
+      confirmLabel: '删除',
+      onConfirm: async () => {
+        try {
+          setIsSubmitting(true)
+          setSubmitError('')
+          await deleteTask(selected.id)
+          setToast({ message: '个人任务已删除', type: 'success' })
+          await loadTasks()
+        } catch (error) {
+          const message = getErrorMessage(error)
+          setSubmitError(message)
+          setToast({ message, type: 'error' })
+        } finally {
+          setIsSubmitting(false)
+        }
+      },
+    })
   }
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -640,6 +655,21 @@ export function DashboardPage() {
       {toast ? (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       ) : null}
+      {confirm && (
+        <ConfirmDialog
+          open
+          title={confirm.title}
+          message={confirm.message}
+          tone={confirm.tone}
+          confirmLabel={confirm.confirmLabel}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            const action = confirm.onConfirm
+            setConfirm(null)
+            void action()
+          }}
+        />
+      )}
     </AppShell>
   )
 }

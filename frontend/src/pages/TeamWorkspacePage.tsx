@@ -21,6 +21,7 @@ import {
   type TaskQueryParams,
 } from '../api/tasks'
 import { getErrorMessage } from '../api/http'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { TaskFilters, type FilterOptions } from '../components/TaskFilters'
 import { TaskForm } from '../components/TaskForm'
 import { TaskList } from '../components/TaskList'
@@ -63,6 +64,15 @@ export function TeamWorkspacePage() {
   const [depLoading, setDepLoading] = useState(false)
   const [dependencyError, setDependencyError] = useState('')
   const [dependencyInput, setDependencyInput] = useState('')
+
+  type ConfirmConfig = {
+    title: string
+    message: string
+    tone?: 'default' | 'danger'
+    confirmLabel?: string
+    onConfirm: () => Promise<void> | void
+  }
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
 
   const loadWorkspace = useCallback(async () => {
     if (!Number.isFinite(parsedTeamId) || parsedTeamId <= 0) {
@@ -262,28 +272,34 @@ export function TeamWorkspacePage() {
     }
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     const selectedTask = tasks.find((task) => task.id === selectedTaskId)
     if (!selectedTask || !selectedTask.canDelete || !team) {
       setSubmitError('当前角色无权删除团队任务')
       return
     }
 
-    if (!window.confirm('确认删除当前团队任务吗？该操作不可撤销。')) return
-
-    try {
-      setIsSubmitting(true)
-      setSubmitError('')
-      await deleteTeamTask(team.id, selectedTask.id)
-      setToast({ message: '团队任务已删除', type: 'success' })
-      await loadWorkspace()
-    } catch (error) {
-      const message = getErrorMessage(error)
-      setSubmitError(message)
-      setToast({ message, type: 'error' })
-    } finally {
-      setIsSubmitting(false)
-    }
+    setConfirm({
+      title: '删除团队任务',
+      message: '确认删除当前团队任务吗？该操作不可撤销。',
+      tone: 'danger',
+      confirmLabel: '删除',
+      onConfirm: async () => {
+        try {
+          setIsSubmitting(true)
+          setSubmitError('')
+          await deleteTeamTask(team.id, selectedTask.id)
+          setToast({ message: '团队任务已删除', type: 'success' })
+          await loadWorkspace()
+        } catch (error) {
+          const message = getErrorMessage(error)
+          setSubmitError(message)
+          setToast({ message, type: 'error' })
+        } finally {
+          setIsSubmitting(false)
+        }
+      },
+    })
   }
 
   const handleAddMember = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -327,22 +343,28 @@ export function TeamWorkspacePage() {
     }
   }
 
-  const handleRemoveMember = async (userId: number) => {
+  const handleRemoveMember = (userId: number) => {
     if (!team) return
-    if (!window.confirm('确认移除该成员吗？其负责的团队任务会自动转交给 Owner。')) return
-
-    try {
-      setIsUpdatingMembers(true)
-      await removeTeamMember(team.id, userId)
-      setToast({ message: '团队成员已移除', type: 'success' })
-      await loadWorkspace()
-    } catch (error) {
-      const message = getErrorMessage(error)
-      setMemberError(message)
-      setToast({ message, type: 'error' })
-    } finally {
-      setIsUpdatingMembers(false)
-    }
+    setConfirm({
+      title: '移除团队成员',
+      message: '确认移除该成员吗？其未完成的团队任务会被清空负责人但保留原状态，已完成任务保留历史记录。',
+      tone: 'danger',
+      confirmLabel: '移除',
+      onConfirm: async () => {
+        try {
+          setIsUpdatingMembers(true)
+          await removeTeamMember(team.id, userId)
+          setToast({ message: '团队成员已移除', type: 'success' })
+          await loadWorkspace()
+        } catch (error) {
+          const message = getErrorMessage(error)
+          setMemberError(message)
+          setToast({ message, type: 'error' })
+        } finally {
+          setIsUpdatingMembers(false)
+        }
+      },
+    })
   }
 
   const handleLeaveTeam = async () => {
@@ -372,10 +394,24 @@ export function TeamWorkspacePage() {
         setToast({ message: '已离开团队，新 Owner 已指定', type: 'success' })
         navigate('/teams')
       } else {
-        if (!window.confirm('确认离开团队吗？')) return
-        await leaveTeam(team.id, auth.userId)
-        setToast({ message: '已离开团队', type: 'success' })
-        navigate('/teams')
+        setConfirm({
+          title: '离开团队',
+          message: '确认离开团队吗？',
+          tone: 'danger',
+          confirmLabel: '离开',
+          onConfirm: async () => {
+            try {
+              await leaveTeam(team.id, auth.userId)
+              setToast({ message: '已离开团队', type: 'success' })
+              navigate('/teams')
+            } catch (error) {
+              const message = getErrorMessage(error)
+              setMemberError(message)
+              setToast({ message, type: 'error' })
+            }
+          },
+        })
+        return
       }
     } catch (error) {
       const message = getErrorMessage(error)
@@ -384,19 +420,25 @@ export function TeamWorkspacePage() {
     }
   }
 
-  const handleDissolveTeam = async () => {
+  const handleDissolveTeam = () => {
     if (!team) return
-    if (!window.confirm('确认解散团队吗？解散后成员不能继续访问团队空间。')) return
-
-    try {
-      await dissolveTeam(team.id)
-      setToast({ message: '团队已解散', type: 'success' })
-      navigate('/teams')
-    } catch (error) {
-      const message = getErrorMessage(error)
-      setMemberError(message)
-      setToast({ message, type: 'error' })
-    }
+    setConfirm({
+      title: '解散团队',
+      message: '确认解散团队吗？解散后成员不能继续访问团队空间，团队任务和依赖关系将被归档。',
+      tone: 'danger',
+      confirmLabel: '解散',
+      onConfirm: async () => {
+        try {
+          await dissolveTeam(team.id)
+          setToast({ message: '团队已解散', type: 'success' })
+          navigate('/teams')
+        } catch (error) {
+          const message = getErrorMessage(error)
+          setMemberError(message)
+          setToast({ message, type: 'error' })
+        }
+      },
+    })
   }
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null
@@ -685,6 +727,21 @@ export function TeamWorkspacePage() {
       </section>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {confirm && (
+        <ConfirmDialog
+          open
+          title={confirm.title}
+          message={confirm.message}
+          tone={confirm.tone}
+          confirmLabel={confirm.confirmLabel}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            const action = confirm.onConfirm
+            setConfirm(null)
+            void action()
+          }}
+        />
+      )}
     </AppShell>
   )
 }

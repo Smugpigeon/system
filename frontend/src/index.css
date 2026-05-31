@@ -633,3 +633,77 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Dialog ──────────────────────────────────────────────────────────── */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(19, 31, 34, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+  animation: dialog-fade-in 0.12s ease-out;
+}
+
+.dialog-content {
+  background: #fff8ee;
+  color: #111827;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(19, 31, 34, 0.28);
+  min-width: min(420px, 92vw);
+  max-width: min(560px, 92vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  outline: none;
+  animation: dialog-pop-in 0.16s ease-out;
+}
+
+.dialog-header {
+  padding: 1.25rem 1.5rem 0.5rem;
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.dialog-description {
+  margin: 0.4rem 0 0;
+  color: #4b5563;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.dialog-body {
+  padding: 0.75rem 1.5rem 1rem;
+  overflow-y: auto;
+}
+
+.dialog-body:empty {
+  display: none;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.9rem 1.5rem 1.25rem;
+  border-top: 1px solid rgba(19, 31, 34, 0.08);
+  background: rgba(19, 31, 34, 0.02);
+}
+
+@keyframes dialog-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes dialog-pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
