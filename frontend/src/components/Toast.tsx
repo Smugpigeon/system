@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import { motion } from 'motion/react'
+import { dur, ease } from '../lib/motion'
 
 type ToastProps = {
   message: string
@@ -13,11 +15,16 @@ export function Toast({ message, type, onClose }: ToastProps) {
   }, [onClose])
 
   return (
-    <div className={`toast toast--${type}`}>
+    <motion.div
+      className={`toast toast--${type}`}
+      initial={{ opacity: 0, x: 24, scale: 0.98 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      transition={{ duration: dur.enter, ease: ease.out }}
+    >
       <span>{message}</span>
       <button type="button" onClick={onClose}>
         关闭
       </button>
-    </div>
+    </motion.div>
   )
 }

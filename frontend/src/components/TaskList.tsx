@@ -61,9 +61,7 @@ export function TaskList({
                 <h3 className="task-card__title">{task.title}</h3>
               </div>
               <div className="badge-row">
-                <span className={`badge badge--scope-${task.scope.toLowerCase()}`}>
-                  {SCOPE_LABELS[task.scope]}
-                </span>
+                {/* scope 已由左上角 eyebrow 表达，这里不再重复显示，只留状态/优先级 */}
                 <span className={`badge badge--status-${task.status}`}>
                   {STATUS_LABELS[task.status]}
                 </span>

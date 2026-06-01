@@ -3,14 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { createTeam, fetchMyTeams } from '../api/teams'
 import { getErrorMessage } from '../api/http'
 import { Toast } from '../components/Toast'
-import { useAuth } from '../context/useAuth'
 import { AppShell } from '../layout/AppShell'
 import type { TeamSummary } from '../types/team'
 import { TEAM_ROLE_LABELS } from '../types/team'
 
 export function TeamsPage() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
   const [teams, setTeams] = useState<TeamSummary[]>([])
   const [teamName, setTeamName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -76,15 +74,6 @@ export function TeamsPage() {
         <div>
           <p className="eyebrow">My Teams</p>
           <h1>团队协作入口</h1>
-          <p>先进入团队，再在团队空间中做成员、角色和团队任务管理，避免把团队权限逻辑散落到个人工作台。</p>
-        </div>
-        <div className="toolbar">
-          <button className="button-ghost" type="button" onClick={() => navigate('/tasks')}>
-            返回工作台
-          </button>
-          <button className="button-ghost" type="button" onClick={logout}>
-            退出登录
-          </button>
         </div>
       </header>
 
@@ -155,7 +144,7 @@ export function TeamsPage() {
             </div>
           ) : (
             <div className="empty-state">
-              <p>你还没有加入任何团队。可以先创建团队，再把其他同学加进来。</p>
+              <p>你还没有加入任何团队。</p>
             </div>
           )}
         </div>

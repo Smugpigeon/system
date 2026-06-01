@@ -37,7 +37,7 @@ import { TEAM_ROLE_LABELS, type TeamDetail, type TeamRole } from '../types/team'
 export function TeamWorkspacePage() {
   const navigate = useNavigate()
   const { teamId } = useParams()
-  const { auth, logout } = useAuth()
+  const { auth } = useAuth()
   const parsedTeamId = Number(teamId)
   const [team, setTeam] = useState<TeamDetail | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -517,7 +517,6 @@ export function TeamWorkspacePage() {
           ) : (
             <button className="button-ghost" onClick={handleLeaveTeam}>离开团队</button>
           )}
-          <button className="button-ghost" onClick={logout}>退出登录</button>
         </div>
       </header>
 

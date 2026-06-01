@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
 import {
   createTask,
@@ -38,12 +39,23 @@ import './DashboardPage.css'
 
 export function DashboardPage() {
   const navigate = useNavigate()
-  const { auth, logout } = useAuth()
+  const { auth } = useAuth()
 
   // ── Task list state ────────────────────────────────────────────────────────
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
+  // 新建表单默认折叠，点击「新建个人任务」后以下拉动画展开；编辑模式恒展开
+  const [createOpen, setCreateOpen] = useState(false)
+  // 指向折叠表单的标题行，展开后平滑滚动过去，避免用户以为按钮没反应
+  const createToggleRef = useRef<HTMLButtonElement>(null)
+
+  const scrollToForm = () => {
+    // 等展开动画推进后，把新建卡滚到页面底部，确保整栏可见
+    window.setTimeout(() => {
+      createToggleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 220)
+  }
   const [loading, setLoading] = useState(true)
   const [loadingError, setLoadingError] = useState('')
   const [submitError, setSubmitError] = useState('')
@@ -226,12 +238,16 @@ export function DashboardPage() {
     setSelectedTaskId(null)
     setSubmitError('')
     setFormMode('create')
+    setCreateOpen(true)
+    scrollToForm()
   }
 
   const handleSelectTask = (task: Task) => {
     setSelectedTaskId(task.id)
     setSubmitError('')
     setFormMode('edit')
+    setCreateOpen(true)
+    scrollToForm()
   }
 
   const handleSubmit = async (values: TaskFormValues) => {
@@ -384,22 +400,13 @@ export function DashboardPage() {
         <div>
           <p className="eyebrow">Personal Dashboard / Lab3</p>
           <h1>{auth?.username} 的工作台</h1>
-          <p>
-            在这里统一查看个人任务和分配给你的团队任务。团队协作管理入口放在独立团队空间，避免权限判断散落在同一页面里。
-          </p>
         </div>
         <div className="toolbar">
-          <button className="button-ghost" type="button" onClick={() => navigate('/teams')}>
-            我的团队
-          </button>
-          <button className="button-primary" type="button" onClick={handleOpenCreate}>
-            新建个人任务
-          </button>
           <button className="button-ghost" type="button" onClick={handleRefresh}>
             刷新列表
           </button>
-          <button className="button-ghost" type="button" onClick={logout}>
-            退出登录
+          <button className="button-primary" type="button" onClick={handleOpenCreate}>
+            新建个人任务
           </button>
         </div>
       </header>
@@ -428,12 +435,6 @@ export function DashboardPage() {
         </article>
       </section>
 
-      <TaskFilters
-        onFilterChange={handleFilterChange}
-        totalCount={totalRecords}
-        filteredCount={tasks.length}
-      />
-
       {loadingError ? <div className="message message--error">{loadingError}</div> : null}
 
       {/* ── Workspace ── */}
@@ -442,8 +443,8 @@ export function DashboardPage() {
         <div className="panel panel-stack">
           <div className="panel-header">
             <div>
-              <p className="eyebrow">Task Stream</p>
-              <h2>当前任务</h2>
+              <p className="eyebrow">My Tasks</p>
+              <h2>我的任务</h2>
             </div>
             <div className="pagination">
               <button
@@ -465,6 +466,14 @@ export function DashboardPage() {
               </button>
             </div>
           </div>
+
+          {/* 筛选条件就放在清单上方，选完即时筛出符合的任务清单 */}
+          <TaskFilters
+            onFilterChange={handleFilterChange}
+            totalCount={totalRecords}
+            filteredCount={tasks.length}
+          />
+
           {loading ? (
             <div className="empty-state"><p>任务列表加载中...</p></div>
           ) : (
@@ -476,60 +485,98 @@ export function DashboardPage() {
               onSelect={handleSelectTask}
             />
           )}
+
         </div>
 
-        {/* Task detail / create panel */}
+        {/* 新建 / 编辑任务独立成一张卡；点新建后滚动到这里并展开 */}
         <div className="panel panel-stack">
-          <div className="panel-header">
+          <button
+            ref={createToggleRef}
+            type="button"
+            className="panel-header panel-header--toggle"
+            onClick={() => {
+              if (formMode === 'create') {
+                setCreateOpen((open) => !open)
+              } else {
+                handleOpenCreate()
+              }
+            }}
+            aria-expanded={createOpen || formMode === 'edit'}
+          >
             <div>
               <p className="eyebrow">{formMode === 'create' ? 'Create Personal Task' : 'Task Detail'}</p>
               <h2>{formMode === 'create' ? '新建个人任务' : '任务详情'}</h2>
             </div>
-            {selectedTask?.scope === 'TEAM' && selectedTask.teamId ? (
-              <button
-                className="button-ghost"
-                type="button"
-                onClick={() => navigate(`/teams/${selectedTask.teamId}`)}
+            <motion.span
+              className="panel-chevron"
+              animate={{ rotate: (createOpen || formMode === 'edit') ? 180 : 0 }}
+              transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
+              aria-hidden="true"
+            >
+              ⌄
+            </motion.span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {(createOpen || formMode === 'edit') && (
+              <motion.div
+                key="create-form"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.28, ease: [0.2, 0, 0, 1] }}
+                style={{ overflow: 'hidden' }}
               >
-                前往团队空间
-              </button>
-            ) : null}
-          </div>
+                <div className="panel-stack" style={{ paddingTop: '1.25rem' }}>
+                  {selectedTask?.scope === 'TEAM' && selectedTask.teamId ? (
+                    <button
+                      className="button-ghost"
+                      type="button"
+                      onClick={() => navigate(`/teams/${selectedTask.teamId}`)}
+                    >
+                      前往团队空间
+                    </button>
+                  ) : null}
 
-          {/* Blocked-by hint — shown when trying to DONE a task with unfinished prerequisites */}
-          {formMode === 'edit'
-            && selectedTask?.scope === 'PERSONAL'
-            && blockedByUnfinished.length > 0 && (
-            <div className="message message--warning">
-              ⚠️ 该任务有 {blockedByUnfinished.length} 个前置任务尚未完成（
-              {blockedByUnfinished.map((d) => d.title).join('、')}
-              ），无法标记为已完成。
-            </div>
-          )}
+                  {/* Blocked-by hint — shown when trying to DONE a task with unfinished prerequisites */}
+                  {formMode === 'edit'
+                    && selectedTask?.scope === 'PERSONAL'
+                    && blockedByUnfinished.length > 0 && (
+                    <div className="message message--warning">
+                      ⚠️ 该任务有 {blockedByUnfinished.length} 个前置任务尚未完成（
+                      {blockedByUnfinished.map((d) => d.title).join('、')}
+                      ），无法标记为已完成。
+                    </div>
+                  )}
 
-          <TaskForm
-            mode={formMode}
-            initialValues={taskToFormValues(selectedTask)}
-            error={submitError}
-            isSubmitting={isSubmitting}
-            onCancelCreate={() => {
-              setFormMode('create')
-              setSelectedTaskId(null)
-            }}
-            onDelete={selectedTask?.scope === 'PERSONAL' ? handleDelete : undefined}
-            onSubmit={handleSubmit}
-            allowDetailEditing={formMode === 'create' || selectedTask?.scope === 'PERSONAL'}
-            allowStatusEditing={formMode === 'create' || Boolean(selectedTask?.canEditStatus)}
-            allowDelete={selectedTask?.scope === 'PERSONAL'}
-            readOnlyHint={selectedTaskHint}
-            submitLabel={
-              formMode === 'create'
-                ? '创建个人任务'
-                : selectedTask?.scope === 'TEAM'
-                  ? '更新任务状态'
-                  : '保存修改'
-            }
-          />
+                  <TaskForm
+                    mode={formMode}
+                    initialValues={taskToFormValues(selectedTask)}
+                    error={submitError}
+                    isSubmitting={isSubmitting}
+                    onCancelCreate={() => {
+                      setFormMode('create')
+                      setSelectedTaskId(null)
+                      setCreateOpen(false)
+                    }}
+                    onDelete={selectedTask?.scope === 'PERSONAL' ? handleDelete : undefined}
+                    onSubmit={handleSubmit}
+                    allowDetailEditing={formMode === 'create' || selectedTask?.scope === 'PERSONAL'}
+                    allowStatusEditing={formMode === 'create' || Boolean(selectedTask?.canEditStatus)}
+                    allowDelete={selectedTask?.scope === 'PERSONAL'}
+                    readOnlyHint={selectedTaskHint}
+                    submitLabel={
+                      formMode === 'create'
+                        ? '创建个人任务'
+                        : selectedTask?.scope === 'TEAM'
+                          ? '更新任务状态'
+                          : '保存修改'
+                    }
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Dependency panel — only for personal tasks in edit mode */}
