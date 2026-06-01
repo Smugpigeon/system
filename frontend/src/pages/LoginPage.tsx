@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { motion } from 'motion/react'
 import { login } from '../api/auth'
 import { getErrorMessage } from '../api/http'
 import { AuthCard } from '../components/AuthCard'
@@ -86,7 +87,12 @@ export function LoginPage() {
         </>
       )}
     >
-      <div className="auth-wrap">
+      <motion.div
+        className="auth-wrap"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
         <AuthCard
           eyebrow="Login"
           title="进入任务系统"
@@ -138,7 +144,7 @@ export function LoginPage() {
             </button>
           </form>
         </AuthCard>
-      </div>
+      </motion.div>
     </AppShell>
   )
 }

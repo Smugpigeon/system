@@ -1,3 +1,4 @@
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import type { Task } from '../types/task'
 import {
   PRIORITY_LABELS,
@@ -24,6 +25,9 @@ export function TaskList({
   onSelect,
   depCounts = {},
 }: TaskListProps) {
+  // 任务卡片增删改时自动平滑过渡——比 Framer Motion 配置更省，零业务逻辑改动
+  const [listRef] = useAutoAnimate<HTMLDivElement>()
+
   if (!tasks.length) {
     return (
       <div className="empty-state">
@@ -36,7 +40,7 @@ export function TaskList({
   }
 
   return (
-    <div className="task-list">
+    <div className="task-list" ref={listRef}>
       {tasks.map((task) => {
         const counts = depCounts[task.id]
         const hasDeps = counts !== undefined && (counts.deps > 0 || counts.dependents > 0)
