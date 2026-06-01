@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 export type FilterOptions = {
   status: string
   priority: string
@@ -7,20 +5,15 @@ export type FilterOptions = {
 }
 
 type TaskFiltersProps = {
+  value: FilterOptions
   onFilterChange: (filters: FilterOptions) => void
   totalCount: number
   filteredCount: number
 }
 
-export function TaskFilters({ onFilterChange, totalCount, filteredCount }: TaskFiltersProps) {
-  const [filters, setFilters] = useState<FilterOptions>({
-    status: 'ALL',
-    priority: 'ALL',
-    keyword: '',
-  })
-
+// 受控组件：筛选状态由父级持有，便于点击统计卡时同步下拉显示
+export function TaskFilters({ value: filters, onFilterChange, totalCount, filteredCount }: TaskFiltersProps) {
   const updateFilters = (nextFilters: FilterOptions) => {
-    setFilters(nextFilters)
     onFilterChange(nextFilters)
   }
 

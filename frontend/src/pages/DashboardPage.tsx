@@ -64,6 +64,8 @@ export function DashboardPage() {
   const [pageSize] = useState(10)
   const [totalPages, setTotalPages] = useState(0)
   const [totalRecords, setTotalRecords] = useState(0)
+  // 全量状态统计（不受分页/筛选影响），用于顶部统计卡
+  const [statusCounts, setStatusCounts] = useState({ total: 0, TODO: 0, IN_PROGRESS: 0, DONE: 0 })
   const [filters, setFilters] = useState<FilterOptions>({
     status: 'ALL',
     priority: 'ALL',
@@ -148,6 +150,29 @@ export function DashboardPage() {
   useEffect(() => {
     loadTasks()
   }, [loadTasks])
+
+  // 拉全量状态计数：对每个状态各发一次 size=1 请求，读 totalRecords，不受当前页/筛选影响
+  const loadSummary = useCallback(async () => {
+    try {
+      const [todo, inProgress, done] = await Promise.all([
+        fetchTasks({ page: 1, size: 1, status: 'TODO', sortBy: 'updatedAt' }),
+        fetchTasks({ page: 1, size: 1, status: 'IN_PROGRESS', sortBy: 'updatedAt' }),
+        fetchTasks({ page: 1, size: 1, status: 'DONE', sortBy: 'updatedAt' }),
+      ])
+      setStatusCounts({
+        total: todo.totalRecords + inProgress.totalRecords + done.totalRecords,
+        TODO: todo.totalRecords,
+        IN_PROGRESS: inProgress.totalRecords,
+        DONE: done.totalRecords,
+      })
+    } catch {
+      // 统计失败不阻塞主流程
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSummary()
+  }, [loadSummary])
 
   // 用 ref 跟踪最新的依赖请求 id；快速切任务时丢弃过期响应，防止旧请求覆盖新数据
   const depRequestIdRef = useRef(0)
@@ -268,6 +293,7 @@ export function DashboardPage() {
         setToast({ message: '个人任务创建成功', type: 'success' })
         setCurrentPage(1)
         await loadTasks()
+        loadSummary()
         return
       }
 
@@ -289,6 +315,7 @@ export function DashboardPage() {
       }
 
       await loadTasks()
+      loadSummary()
     } catch (error) {
       const message = getErrorMessage(error)
       setSubmitError(message)
@@ -325,6 +352,7 @@ export function DashboardPage() {
           await deleteTask(selected.id)
           setToast({ message: '个人任务已删除', type: 'success' })
           await loadTasks()
+          loadSummary()
         } catch (error) {
           const message = getErrorMessage(error)
           setSubmitError(message)
@@ -355,11 +383,9 @@ export function DashboardPage() {
     [dependencies],
   )
 
-  const summary = {
-    total: totalRecords,
-    personal: tasks.filter((t) => t.scope === 'PERSONAL').length,
-    assignedTeam: tasks.filter((t) => t.scope === 'TEAM').length,
-    done: tasks.filter((t) => t.status === 'DONE').length,
+  // 点击统计卡：按对应状态筛选「我的任务」（status=ALL 表示清除筛选看全部）
+  const filterByStatus = (status: string) => {
+    handleFilterChange({ ...filters, status })
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -411,28 +437,44 @@ export function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Summary cards ── */}
+      {/* ── Summary cards（点击按状态筛选）── */}
       <section className="summary-grid">
-        <article className="summary-card">
+        <button
+          type="button"
+          className={`summary-card ${filters.status === 'ALL' ? 'summary-card--active' : ''}`}
+          onClick={() => filterByStatus('ALL')}
+        >
           <h3>总任务数</h3>
-          <strong>{summary.total}</strong>
-          <span>当前页已加载的总任务记录</span>
-        </article>
-        <article className="summary-card">
-          <h3>个人任务</h3>
-          <strong>{summary.personal}</strong>
-          <span>由当前用户创建</span>
-        </article>
-        <article className="summary-card">
-          <h3>团队任务</h3>
-          <strong>{summary.assignedTeam}</strong>
-          <span>当前用户被分配到的团队任务</span>
-        </article>
-        <article className="summary-card">
+          <strong>{statusCounts.total}</strong>
+          <span>全部任务，点击查看全部</span>
+        </button>
+        <button
+          type="button"
+          className={`summary-card ${filters.status === 'TODO' ? 'summary-card--active' : ''}`}
+          onClick={() => filterByStatus('TODO')}
+        >
+          <h3>待开始</h3>
+          <strong>{statusCounts.TODO}</strong>
+          <span>状态为 TODO，点击筛选</span>
+        </button>
+        <button
+          type="button"
+          className={`summary-card ${filters.status === 'IN_PROGRESS' ? 'summary-card--active' : ''}`}
+          onClick={() => filterByStatus('IN_PROGRESS')}
+        >
+          <h3>进行中</h3>
+          <strong>{statusCounts.IN_PROGRESS}</strong>
+          <span>状态为 IN_PROGRESS，点击筛选</span>
+        </button>
+        <button
+          type="button"
+          className={`summary-card ${filters.status === 'DONE' ? 'summary-card--active' : ''}`}
+          onClick={() => filterByStatus('DONE')}
+        >
           <h3>已完成</h3>
-          <strong>{summary.done}</strong>
-          <span>状态为 DONE 的任务</span>
-        </article>
+          <strong>{statusCounts.DONE}</strong>
+          <span>状态为 DONE，点击筛选</span>
+        </button>
       </section>
 
       {loadingError ? <div className="message message--error">{loadingError}</div> : null}
@@ -469,6 +511,7 @@ export function DashboardPage() {
 
           {/* 筛选条件就放在清单上方，选完即时筛出符合的任务清单 */}
           <TaskFilters
+            value={filters}
             onFilterChange={handleFilterChange}
             totalCount={totalRecords}
             filteredCount={tasks.length}

@@ -524,6 +524,16 @@ button {
   min-width: 180px;
   flex: 1 1 180px;
   padding: 1.5rem;
+  /* 统计卡现在是可点击按钮：去掉默认样式，左对齐 */
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.summary-card--active {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-whisper), 0 0 0 1px var(--brand);
 }
 
 .summary-card strong {

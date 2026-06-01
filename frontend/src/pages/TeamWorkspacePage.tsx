@@ -596,7 +596,7 @@ export function TeamWorkspacePage() {
             </div>
           </div>
 
-          <TaskFilters onFilterChange={handleFilterChange} totalCount={totalRecords} filteredCount={tasks.length} />
+          <TaskFilters value={filters} onFilterChange={handleFilterChange} totalCount={totalRecords} filteredCount={tasks.length} />
 
           <div className="pagination">
             <button
