@@ -408,7 +408,6 @@ button {
 .member-card__actions,
 .pagination,
 .auth-links,
-.workspace-grid,
 .summary-grid,
 .field-grid,
 .inline-form {
@@ -434,6 +433,18 @@ button {
   margin: 0;
   font: 500 clamp(1.8rem, 3vw, 2.5rem) / 1.15 var(--display);
   letter-spacing: -0.01em;
+}
+
+/* 标题旁的角色标签：和大标题基线居中对齐 */
+.title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.title-with-badge .role-badge {
+  font-size: 0.8rem;
 }
 
 .main-header p {

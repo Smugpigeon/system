@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   addTeamMember,
@@ -43,6 +44,15 @@ export function TeamWorkspacePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('edit')
+  // 新建/编辑团队任务表单默认折叠，点击后下拉展开并滚动到顶端（复用个人工作台的交互）
+  const [createOpen, setCreateOpen] = useState(false)
+  const createToggleRef = useRef<HTMLButtonElement>(null)
+
+  const scrollToForm = () => {
+    window.setTimeout(() => {
+      createToggleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 220)
+  }
   const [loading, setLoading] = useState(true)
   const [loadingError, setLoadingError] = useState('')
   const [submitError, setSubmitError] = useState('')
@@ -227,12 +237,16 @@ export function TeamWorkspacePage() {
     setSelectedTaskId(null)
     setFormMode('create')
     setSubmitError('')
+    setCreateOpen(true)
+    scrollToForm()
   }
 
   const handleSelectTask = (task: Task) => {
     setSelectedTaskId(task.id)
     setFormMode('edit')
     setSubmitError('')
+    setCreateOpen(true)
+    scrollToForm()
   }
 
   const handleSubmit = async (values: TaskFormValues) => {
@@ -501,14 +515,16 @@ export function TeamWorkspacePage() {
       <header className="main-header">
         <div>
           <p className="eyebrow">Team Workspace / Lab3</p>
-          <h1>{team ? team.name : '团队空间'}</h1>
-          <p>
-            当前登录角色：{team ? TEAM_ROLE_LABELS[team.currentUserRole] : '加载中'}
-          </p>
+          <h1 className="title-with-badge">
+            {team ? team.name : '团队空间'}
+            {team && (
+              <span className={`role-badge role-badge--${team.currentUserRole.toLowerCase()}`}>
+                {TEAM_ROLE_LABELS[team.currentUserRole]}
+              </span>
+            )}
+          </h1>
         </div>
         <div className="toolbar">
-          <button className="button-ghost" onClick={() => navigate('/teams')}>返回我的团队</button>
-          <button className="button-ghost" onClick={() => navigate('/tasks')}>返回工作台</button>
           {canManageMembers ? (
             <>
               <button className="button-ghost" onClick={handleOpenTransferDialog}>转让所有权</button>
@@ -626,13 +642,44 @@ export function TeamWorkspacePage() {
 
         {/* 下方：任务详情 + 依赖管理 */}
         <div className="panel panel-stack workspace-grid__full">
-          <div className="panel-header">
+          <button
+            ref={createToggleRef}
+            type="button"
+            className="panel-header panel-header--toggle"
+            onClick={() => {
+              if (formMode === 'create') {
+                setCreateOpen((open) => !open)
+              } else {
+                handleOpenCreate()
+              }
+            }}
+            aria-expanded={createOpen || formMode === 'edit'}
+          >
             <div>
               <p className="eyebrow">{formMode === 'create' ? 'Create Team Task' : 'Task Detail'}</p>
               <h2>{formMode === 'create' ? '新建团队任务' : '团队任务详情'}</h2>
             </div>
-          </div>
+            <motion.span
+              className="panel-chevron"
+              animate={{ rotate: (createOpen || formMode === 'edit') ? 180 : 0 }}
+              transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
+              aria-hidden="true"
+            >
+              ⌄
+            </motion.span>
+          </button>
 
+          <AnimatePresence initial={false}>
+            {(createOpen || formMode === 'edit') && (
+              <motion.div
+                key="team-create-form"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.28, ease: [0.2, 0, 0, 1] }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="panel-stack" style={{ paddingTop: '1.25rem' }}>
           <TaskForm
             mode={formMode}
             initialValues={taskToFormValues(selectedTask)}
@@ -641,6 +688,7 @@ export function TeamWorkspacePage() {
             onCancelCreate={() => {
               setFormMode('edit')
               setSelectedTaskId(tasks[0]?.id ?? null)
+              setCreateOpen(false)
             }}
             onDelete={selectedTask?.canDelete ? handleDelete : undefined}
             onSubmit={handleSubmit}
@@ -737,6 +785,10 @@ export function TeamWorkspacePage() {
               </div>
             </section>
           )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </section>
 

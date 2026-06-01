@@ -185,30 +185,7 @@
   white-space: nowrap;
 }
 
-.workspace-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  align-items: start;
-}
-
-.workspace-grid:has(> :nth-child(3)) {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
-@media (max-width: 1200px) {
-  .workspace-grid,
-  .workspace-grid:has(> :nth-child(3)) {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .workspace-grid,
-  .workspace-grid:has(> :nth-child(3)) {
-    grid-template-columns: 1fr;
-  }
-}
+/* workspace-grid 的单列布局统一由 index.css 定义，这里不再覆盖（避免两栏） */
 
 .panel-stack {
   display: flex;
